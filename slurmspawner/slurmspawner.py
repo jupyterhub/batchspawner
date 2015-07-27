@@ -48,12 +48,14 @@ def run_jupyterhub_singleuser(cmd, user):
     sbatch = Template('''#!/bin/bash
 #SBATCH --partition=$queue
 #SBATCH --time=$hours:00:00
-#SBATCH -o jupyterhub_slurmspawner_%j.log
+#SBATCH -o /home/$user/jupyterhub_slurmspawner_%j.log
 #SBATCH --job-name=spawner-jupyterhub
+#SBATCH --workdir=/home/$user
 #SBATCH --mem=$mem
 ###SBATCH --export=ALL
 #SBATCH --uid=$user
 #SBATCH --get-user-env=L
+
 which jupyterhub-singleuser
 $export_cmd
 $cmd
