@@ -4,6 +4,7 @@ This is a custom spawner for Jupyterhub that is designed for installations on cl
 ##Installation
 1. from root directory of this repo (where setup.py is), run `pip install -e .`
 2. add lines in jupyterhub_config.py 
+   
    ```python
       c = get_config()
       c.JupyterHub.spawner_class = 'slurmspawner.SlurmSpawner'
