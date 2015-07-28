@@ -63,7 +63,7 @@ $cmd
 
     queue = "all"
     mem = '200'
-    hours = '1'
+    hours = '2'
     full_cmd = cmd.split(';')
     export_cmd = full_cmd[0]
     cmd = full_cmd[1]
@@ -89,9 +89,6 @@ class SlurmSpawner(Spawner):
 
     ip = Unicode("0.0.0.0", config=True, \
         help="url of the server")
-
-    server_user = Unicode(getpass.getuser(), config=True, \
-        help="user who is logged in on the server")
 
     slurm_job_id = Unicode() # will get populated after spawned
 
@@ -129,14 +126,16 @@ class SlurmSpawner(Spawner):
         return self.user_env(env)
 
     def _check_slurm_job_state(self):
+        if self.slurm_job_id in (None, ""):
+            # job has been cancelled or failed, so don't even try the squeue command. This is because
+            # squeue will return RUNNING if you submit something like `squeue -h -j -o %T` and there's
+            # at least 1 job running
+            return ""
         # check sacct to see if the job is still running
-        cmd = 'sacct -n -j ' + self.slurm_job_id + ' -o state'
+        cmd = 'squeue -h -j ' + self.slurm_job_id + ' -o %T'
         out = run_command(cmd)
         self.log.info("Notebook server for user %s: Slurm jobid %s status: %s" % (self.user.name, self.slurm_job_id, out))
-        if "RUNNING" in out:
-            return None
-        else:
-            return 1
+        return out
 
     @gen.coroutine
     def start(self):
@@ -154,15 +153,9 @@ class SlurmSpawner(Spawner):
             cmd.insert(0, 'export %s="%s";' % (k, env[k]))
         #self.pid, stdin, stdout, stderr = execute(self.channel, ' '.join(cmd))
         
-        ####################################################################################
-        # These 2 lines causing problems with logging into the hub - can't log back in once logged out
-        #user = self.make_preexec_fn(self.user.name)
-        #user()
-        #####################################################################################
-        
         output = run_jupyterhub_singleuser(' '.join(cmd), self.user.name)
         output = output.decode() # convert bytes object to string
-        self.log.info(output)
+        self.log.debug("Stdout of trying to call run_jupyterhub_singleuser(): %s" % output)
         self.slurm_job_id = output.split(' ')[-1] # the job id should be the very last part of the string
 
         # make sure jobid is really a number
@@ -174,36 +167,43 @@ class SlurmSpawner(Spawner):
         #time.sleep(2)
         job_state = self._check_slurm_job_state()
         for i in range(10):
-            if job_state is not None:
-                self.log.info("job_state is %s" % job_state)
+            self.log.info("job_state is %s" % job_state)
+            if 'RUNNING' in job_state:
+                break
+            elif 'PENDING' in job_state:
                 job_state = self._check_slurm_job_state()
                 time.sleep(1)
             else:
-                break
+                self.log.info("Job %s failed to start!" % self.slurm_job_id)
+                return 1 # is this right? Or should I not return, or return a different thing?
         
         notebook_ip = get_slurm_job_info(self.slurm_job_id)
 
-        self.user.server.ip = notebook_ip # don't know if this is right or not
+        self.user.server.ip = notebook_ip 
         self.log.info("Notebook server ip is %s" % self.user.server.ip)
 
     @gen.coroutine
     def poll(self):
         """Poll the process"""
-        return self._check_slurm_job_state()
+        if self.slurm_job_id is not None:
+            state = self._check_slurm_job_state()
+            if "RUNNING" in state or "PENDING" in state:
+                return None
+            else:
+                self.clear_state()
+                return 1
+
+        if not self.slurm_job_id:
+            # no job id means it's not running
+            self.clear_state()
+            return 1
 
     @gen.coroutine
     def _signal(self, sig):
         """simple implementation of signal
 
         we can use it when we are using setuid (we are root)"""
-        #try:
-        #    os.kill(self.pid, sig)
-        #except OSError as e:
-        #    if e.errno == errno.ESRCH:
-        #        return False # process is gone
-        #    else:
-        #        raise
-        return True # process exists
+        return True
 
     @gen.coroutine
     def stop(self, now=False):
@@ -211,22 +211,23 @@ class SlurmSpawner(Spawner):
 
         if `now`, skip waiting for clean shutdown
         """
+        status = yield self.poll()
+        self.log.info("*** Stopping notebook for user %s. Status is currently %s ****" % (self.user.name, status))
+        if status is not None:
+            # job is not running
+            return
+
         cmd = 'scancel ' + self.slurm_job_id
         self.log.info("cancelling job %s" % self.slurm_job_id)
-        if now:
-            return
 
-        out = run_command(cmd)
-
-        if out in ("CANCELLED", "COMPLETED", "FAILED"):
+        job_state = run_command(cmd)
+        
+        if job_state in ("CANCELLED", "COMPLETED", "FAILED", "COMPLETING"):
             return
-        while True:
-            status = self.poll()
+        else:
+            status = yield self.poll()
             if status is None:
-                continue
-            break
-        # means job is no longer running, so return
-        return
+                self.log.warn("Job %s never cancelled" % self.slurm_job_id)
 
 
 if __name__ == "__main__":
