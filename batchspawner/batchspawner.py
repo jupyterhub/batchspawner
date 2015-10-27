@@ -1,4 +1,20 @@
-"""SlurmSpawner implementation"""
+# Copyright (c) Regents of the University of Minnesota
+# Copyright (c) Michael Gilbert
+# Distributed under the terms of the Modified BSD License.
+
+"""Batch spawners
+
+This file contains an abstraction layer for batch job queueing systems, and implements
+Jupyterhub spawners for Torque, SLURM, and eventually others.
+
+Common attributes of batch submission / resource manager environments will include notions of:
+  * queue names, resource manager addresses
+  * resource limits including runtime, number of processes, memory
+  * singleuser child process running on (usually remote) host not known until runtime
+  * job submission and monitoring via resource manager utilities
+  * remote execution via submission of templated scripts
+  * job names instead of PIDs
+"""
 import signal
 import errno
 import pwd
