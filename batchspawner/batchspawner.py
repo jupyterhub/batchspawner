@@ -90,8 +90,8 @@ $cmd
     out = popen.communicate(sbatch.encode())[0].strip() #e.g. something like "Submitted batch job 209"
     return out
 
-class SlurmSpawner(Spawner):
-    """A Spawner that just uses Popen to start local processes."""
+class BatchSpawnerBase(Spawner):
+    """Base class for spawners using resource manager batch job submission mechanisms"""
 
     INTERRUPT_TIMEOUT = Integer(1200, config=True, \
         help="Seconds to wait for process to halt after SIGINT before proceeding to SIGTERM"
@@ -102,34 +102,55 @@ class SlurmSpawner(Spawner):
     KILL_TIMEOUT = Integer(1200, config=True, \
         help="Seconds to wait for process to halt after SIGKILL before giving up"
                           )
+    queue = Unicode('', config=True, \
+        help="Queue name to submit job to resource manager"
+        )
+
+    memory = Unicode('', config=True, \
+        help="Memory to request from resource manager"
+        )
+
+    nprocs = Unicode('', config=True, \
+        help="Number of processors to request from resource manager"
+        )
+
+    runtime = Unicode('', config=True, \
+        help="Length of time for submitted job to run"
+        )
+
+    job_script = Unicode('', config=True, \
+        help="Template for job submission script"
+        )
+
+    job_id = Unicode()
+
+    def load_state(self, state):
+        """load job_id from state"""
+        super(BatchSpawnerBase, self).load_state(state)
+        self.job_id = state.get('job_id', '')
+
+    def get_state(self):
+        """add job_id to state"""
+        state = super(BatchSpawnerBase, self).get_state()
+        if self.job_id:
+            state['job_id'] = self.job_id
+        return state
+
+    def clear_state(self):
+        """clear job_id state"""
+        super(BatchSpawnerBase, self).clear_state()
+        self.job_id = ""
+
+
+class SlurmSpawner(BatchSpawnerBase):
+    """A Spawner that just uses Popen to start local processes."""
 
     ip = Unicode("0.0.0.0", config=True, \
         help="url of the server")
 
-    slurm_job_id = Unicode() # will get populated after spawned
-
-    pid = Integer(0)
-
     def make_preexec_fn(self, name):
         """make preexec fn"""
         return set_user_setuid(name)
-
-    def load_state(self, state):
-        """load slurm_job_id from state"""
-        super(SlurmSpawner, self).load_state(state)
-        self.slurm_job_id = state.get('slurm_job_id', '')
-
-    def get_state(self):
-        """add slurm_job_id to state"""
-        state = super(SlurmSpawner, self).get_state()
-        if self.slurm_job_id:
-            state['slurm_job_id'] = self.slurm_job_id
-        return state
-
-    def clear_state(self):
-        """clear slurm_job_id state"""
-        super(SlurmSpawner, self).clear_state()
-        self.slurm_job_id = ""
 
     def user_env(self, env):
         """get user environment"""
@@ -142,15 +163,15 @@ class SlurmSpawner(Spawner):
         return self.user_env(env)
 
     def _check_slurm_job_state(self):
-        if self.slurm_job_id in (None, ""):
+        if self.job_id in (None, ""):
             # job has been cancelled or failed, so don't even try the squeue command. This is because
             # squeue will return RUNNING if you submit something like `squeue -h -j -o %T` and there's
             # at least 1 job running
             return ""
         # check sacct to see if the job is still running
-        cmd = 'squeue -h -j ' + self.slurm_job_id + ' -o %T'
+        cmd = 'squeue -h -j ' + self.job_id + ' -o %T'
         out = run_command(cmd)
-        self.log.info("Notebook server for user %s: Slurm jobid %s status: %s" % (self.user.name, self.slurm_job_id, out))
+        self.log.info("Notebook server for user %s: Slurm jobid %s status: %s" % (self.user.name, self.job_id, out))
         return out
 
     @gen.coroutine
@@ -172,13 +193,13 @@ class SlurmSpawner(Spawner):
         output = run_jupyterhub_singleuser(' '.join(cmd), self.user.name)
         output = output.decode() # convert bytes object to string
         self.log.debug("Stdout of trying to call run_jupyterhub_singleuser(): %s" % output)
-        self.slurm_job_id = output.split(' ')[-1] # the job id should be the very last part of the string
+        self.job_id = output.split(' ')[-1] # the job id should be the very last part of the string
 
         # make sure jobid is really a number
         try:
-            int(self.slurm_job_id)
+            int(self.job_id)
         except ValueError:
-            self.log.info("sbatch returned this at the end of their string: %s" % self.slurm_job_id)
+            self.log.info("sbatch returned this at the end of their string: %s" % self.job_id)
 
         #time.sleep(2)
         job_state = self._check_slurm_job_state()
@@ -190,10 +211,10 @@ class SlurmSpawner(Spawner):
                 job_state = self._check_slurm_job_state()
                 time.sleep(1)
             else:
-                self.log.info("Job %s failed to start!" % self.slurm_job_id)
+                self.log.info("Job %s failed to start!" % self.job_id)
                 return 1 # is this right? Or should I not return, or return a different thing?
         
-        notebook_ip = get_slurm_job_info(self.slurm_job_id)
+        notebook_ip = get_slurm_job_info(self.job_id)
 
         self.user.server.ip = notebook_ip 
         self.log.info("Notebook server ip is %s" % self.user.server.ip)
@@ -201,7 +222,7 @@ class SlurmSpawner(Spawner):
     @gen.coroutine
     def poll(self):
         """Poll the process"""
-        if self.slurm_job_id is not None:
+        if self.job_id is not None:
             state = self._check_slurm_job_state()
             if "RUNNING" in state or "PENDING" in state:
                 return None
@@ -209,7 +230,7 @@ class SlurmSpawner(Spawner):
                 self.clear_state()
                 return 1
 
-        if not self.slurm_job_id:
+        if not self.job_id:
             # no job id means it's not running
             self.clear_state()
             return 1
@@ -233,8 +254,8 @@ class SlurmSpawner(Spawner):
             # job is not running
             return
 
-        cmd = 'scancel ' + self.slurm_job_id
-        self.log.info("cancelling job %s" % self.slurm_job_id)
+        cmd = 'scancel ' + self.job_id
+        self.log.info("cancelling job %s" % self.job_id)
 
         job_state = run_command(cmd)
         
@@ -243,7 +264,7 @@ class SlurmSpawner(Spawner):
         else:
             status = yield self.poll()
             if status is None:
-                self.log.warn("Job %s never cancelled" % self.slurm_job_id)
+                self.log.warn("Job %s never cancelled" % self.job_id)
 
 
 if __name__ == "__main__":
