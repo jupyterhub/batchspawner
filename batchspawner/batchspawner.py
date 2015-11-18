@@ -25,6 +25,7 @@ import pipes
 from subprocess import Popen, call
 import subprocess
 from string import Template
+import tempfile
 
 from tornado import gen
 
@@ -102,27 +103,39 @@ class BatchSpawnerBase(Spawner):
     KILL_TIMEOUT = Integer(1200, config=True, \
         help="Seconds to wait for process to halt after SIGKILL before giving up"
                           )
-    queue = Unicode('', config=True, \
+    batch_queue = Unicode('', config=True, \
         help="Queue name to submit job to resource manager"
         )
 
-    memory = Unicode('', config=True, \
+    batch_host = Unicode('', config=True, \
+        help="Host name of batch server to submit job to resource manager"
+        )
+
+    req_memory = Unicode('', config=True, \
         help="Memory to request from resource manager"
         )
 
-    nprocs = Unicode('', config=True, \
+    req_nprocs = Unicode('', config=True, \
         help="Number of processors to request from resource manager"
         )
 
-    runtime = Unicode('', config=True, \
+    req_runtime = Unicode('', config=True, \
         help="Length of time for submitted job to run"
         )
 
-    job_script = Unicode('', config=True, \
-        help="Template for job submission script"
+    batch_script = Unicode('', config=True, \
+        help="Template for job submission script. Traits on this class named like req_xyz "
+             "will be substituted in the template for {xyz} using string.Formatter"
         )
 
     job_id = Unicode()
+
+    def format_req_script(self):
+        reqlist = [ t for t in self.trait_names() if t.startswith('req_') ]
+        subvars = {}
+        for t in reqlist:
+            subvars[t[4:]] = getattr(self, t)
+        return self.batch_script.format(**subvars)
 
     def load_state(self, state):
         """load job_id from state"""
