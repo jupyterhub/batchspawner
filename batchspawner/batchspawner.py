@@ -94,20 +94,11 @@ $cmd
 class BatchSpawnerBase(Spawner):
     """Base class for spawners using resource manager batch job submission mechanisms"""
 
-    INTERRUPT_TIMEOUT = Integer(1200, config=True, \
-        help="Seconds to wait for process to halt after SIGINT before proceeding to SIGTERM"
-                               )
-    TERM_TIMEOUT = Integer(1200, config=True, \
-        help="Seconds to wait for process to halt after SIGTERM before proceeding to SIGKILL"
-                          )
-    KILL_TIMEOUT = Integer(1200, config=True, \
-        help="Seconds to wait for process to halt after SIGKILL before giving up"
-                          )
-    batch_queue = Unicode('', config=True, \
+    req_queue = Unicode('', config=True, \
         help="Queue name to submit job to resource manager"
         )
 
-    batch_host = Unicode('', config=True, \
+    req_host = Unicode('', config=True, \
         help="Host name of batch server to submit job to resource manager"
         )
 
@@ -154,6 +145,20 @@ class BatchSpawnerBase(Spawner):
         super(BatchSpawnerBase, self).clear_state()
         self.job_id = ""
 
+class TorqueSpawner(BatchSpawnerBase):
+    batch_script = Unicode("""#!/bin/sh
+#PBS -q {queue}@{host}
+#PBS -l walltime={runtime}
+#PBS -l nodes=1:ppn={nprocs}
+#PBS -l mem={memory}
+#PBS -N jupyterhub-singleuser
+#PBS -v JPY_API_TOKEN
+
+TODO - template var for jupyterhub-singleuser cmd
+""",
+        config=True)
+
+    
 
 class SlurmSpawner(BatchSpawnerBase):
     """A Spawner that just uses Popen to start local processes."""
@@ -226,6 +231,7 @@ class SlurmSpawner(BatchSpawnerBase):
             else:
                 self.log.info("Job %s failed to start!" % self.job_id)
                 return 1 # is this right? Or should I not return, or return a different thing?
+                # NOTE MM - no, start/stop don't return anything, server will poll()
         
         notebook_ip = get_slurm_job_info(self.job_id)
 
