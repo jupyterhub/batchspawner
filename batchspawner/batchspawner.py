@@ -94,6 +94,9 @@ $cmd
 class BatchSpawnerBase(Spawner):
     """Base class for spawners using resource manager batch job submission mechanisms"""
 
+    # override default since batch systems typically need longer
+    start_timeout = Integer(300, config=True)
+
     req_queue = Unicode('', config=True, \
         help="Queue name to submit job to resource manager"
         )
@@ -145,6 +148,10 @@ class BatchSpawnerBase(Spawner):
         super(BatchSpawnerBase, self).clear_state()
         self.job_id = ""
 
+    def make_preexec_fn(self, name):
+        """make preexec fn"""
+        return set_user_setuid(name)
+
 class TorqueSpawner(BatchSpawnerBase):
     batch_script = Unicode("""#!/bin/sh
 #PBS -q {queue}@{host}
@@ -165,10 +172,6 @@ class SlurmSpawner(BatchSpawnerBase):
 
     ip = Unicode("0.0.0.0", config=True, \
         help="url of the server")
-
-    def make_preexec_fn(self, name):
-        """make preexec fn"""
-        return set_user_setuid(name)
 
     def user_env(self, env):
         """get user environment"""
@@ -289,3 +292,5 @@ class SlurmSpawner(BatchSpawnerBase):
 if __name__ == "__main__":
 
         run_jupyterhub_singleuser("jupyterhub-singleuser", 3434)
+
+# vim: set ai expandtab softtabstop=4:
