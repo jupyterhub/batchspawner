@@ -97,6 +97,10 @@ class BatchSpawnerBase(Spawner):
     # override default since batch systems typically need longer
     start_timeout = Integer(300, config=True)
 
+    # override default server ip since batch jobs normally running remotely
+    ip = Unicode("0.0.0.0", config=True, help="Address for singleuser server to listen at")
+
+    # all these req_foo traits will be available as substvars for templated strings
     req_queue = Unicode('', config=True, \
         help="Queue name to submit job to resource manager"
         )
@@ -117,19 +121,52 @@ class BatchSpawnerBase(Spawner):
         help="Length of time for submitted job to run"
         )
 
+    req_username = Unicode()
+    def _req_username_default(self):
+        self.req_username = self.user.name
+
     batch_script = Unicode('', config=True, \
         help="Template for job submission script. Traits on this class named like req_xyz "
              "will be substituted in the template for {xyz} using string.Formatter"
         )
 
+    # Raw output of job submission command unless overridden
     job_id = Unicode()
 
-    def format_req_script(self):
+    # Will get the raw output of the job status command unless overridden
+    job_status = Unicode()
+
+    # Prepare substitution variables for templates using req_xyz traits
+    def get_req_subvars(self):
         reqlist = [ t for t in self.trait_names() if t.startswith('req_') ]
         subvars = {}
         for t in reqlist:
             subvars[t[4:]] = getattr(self, t)
-        return self.batch_script.format(**subvars)
+
+    def format_batch_script(self):
+        return self.batch_script.format(**self.get_req_subvars())
+
+    # Override if your batch system needs something more elaborate to read the job status
+    batch_query_cmd = Unicode('', config=True, \
+        help="Command to run to read job status. Will be formatted using req_xyz traits as {xyz} "
+             "and also the current {job_id}."
+        )
+
+    def read_job_state(self):
+        if self.job_id is None or len(self.job_id) == 0:
+            # job not running
+            self.job_status = ''
+            return
+        subvars = get_req_subvars()
+        subvars['job_id'] = self.job_id
+        cmd = self.batch_query_cmd.format(**subvars)
+        out = run_command(cmd)
+        self.log.info('Spawner querying job: ' + cmd)
+        try:
+            self.job_status = out
+        except:
+            self.log.error('Error querying job ' + self.job_id + ': ' + out)
+            self.job_status = ''
 
     def load_state(self, state):
         """load job_id from state"""
@@ -165,13 +202,10 @@ TODO - template var for jupyterhub-singleuser cmd
 """,
         config=True)
 
-    
+    batch_query_cmd = Unicode('qstat -x {job_id}', config=True)
 
 class SlurmSpawner(BatchSpawnerBase):
     """A Spawner that just uses Popen to start local processes."""
-
-    ip = Unicode("0.0.0.0", config=True, \
-        help="url of the server")
 
     def user_env(self, env):
         """get user environment"""
