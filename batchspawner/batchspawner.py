@@ -37,9 +37,10 @@ from traitlets import (
 from jupyterhub.utils import random_port
 from jupyterhub.spawner import set_user_setuid
 
-def run_command(cmd):
-    popen = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-    out = popen.communicate()
+def run_command(cmd, input=None, env=None):
+    popen = subprocess.Popen(cmd, shell=True, env=env, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    if input: inbytes = input.encode()
+    out = popen.communicate(input=inbytes)
     if out[1] is not None:
         return out[1] # exit error?
     else:
@@ -92,7 +93,24 @@ $cmd
     return out
 
 class BatchSpawnerBase(Spawner):
-    """Base class for spawners using resource manager batch job submission mechanisms"""
+    """Base class for spawners using resource manager batch job submission mechanisms
+
+    This base class is developed targetting the TorqueSpawner and SlurmSpawner, so by default
+    assumes a qsub-like command that reads a script from its stdin for starting jobs,
+    a qstat-like command that outputs some data that can be parsed to check if the job is running
+    and on what remote node, and a qdel-like command to cancel a job. The goal is to be
+    sufficiently general that a broad range of systems can be supported with minimal overrides.
+
+    At minimum, subclasses should provide reasonable defaults for the traits:
+        batch_script
+        batch_submit_cmd
+        batch_query_cmd
+        batch_cancel_cmd
+
+    and must provide implementations for the methods:
+        state_ispending
+        state_isrunning
+        state_gethost"""
 
     # override default since batch systems typically need longer
     start_timeout = Integer(300, config=True)
@@ -123,11 +141,16 @@ class BatchSpawnerBase(Spawner):
 
     req_username = Unicode()
     def _req_username_default(self):
-        self.req_username = self.user.name
+        return self.user.name
+
+    req_keepvars = Unicode()
+    def _req_keepvars_default(self):
+        return ','.join(self.env.keys())
 
     batch_script = Unicode('', config=True, \
         help="Template for job submission script. Traits on this class named like req_xyz "
-             "will be substituted in the template for {xyz} using string.Formatter"
+             "will be substituted in the template for {xyz} using string.Formatter. "
+             "Must include {cmd} which will be replaced with the jupyterhub-singleuser command line."
         )
 
     # Raw output of job submission command unless overridden
@@ -142,52 +165,112 @@ class BatchSpawnerBase(Spawner):
         subvars = {}
         for t in reqlist:
             subvars[t[4:]] = getattr(self, t)
+        return subvars
 
-    def format_batch_script(self):
-        return self.batch_script.format(**self.get_req_subvars())
+    batch_submit_cmd = Unicode('', config=True, \
+        help="Command to run to submit batch scripts. Formatted using req_xyz traits as {xyz}."
+        )
+
+    def submit_batch_script(self):
+        subvars = self.get_req_subvars()
+        cmd = self.batch_submit_cmd.format(subvars)
+        subvars['cmd'] = self.cmd + self.get_args()
+        script = self.batch_script.format(subvars)
+        self.log.info('Spawner submitting job using ' + cmd)
+        out = run_command(cmd, input=script, env=self.env)
+        try:
+            self.job_id = out
+        except:
+            self.log.error('Job submission failed with exit code ' + out)
+            self.job_id = ''
+        return self.job_id
 
     # Override if your batch system needs something more elaborate to read the job status
     batch_query_cmd = Unicode('', config=True, \
-        help="Command to run to read job status. Will be formatted using req_xyz traits as {xyz} "
-             "and also the current {job_id}."
+        help="Command to run to read job status. Formatted using req_xyz traits as {xyz} "
+             "and self.job_id as {job_id}."
         )
 
     def read_job_state(self):
         if self.job_id is None or len(self.job_id) == 0:
             # job not running
             self.job_status = ''
-            return
+            return self.job_status
         subvars = get_req_subvars()
         subvars['job_id'] = self.job_id
         cmd = self.batch_query_cmd.format(**subvars)
-        out = run_command(cmd)
         self.log.info('Spawner querying job: ' + cmd)
         try:
+            out = run_command(cmd)
             self.job_status = out
         except:
-            self.log.error('Error querying job ' + self.job_id + ': ' + out)
+            self.log.error('Error querying job ' + self.job_id)
             self.job_status = ''
+        return self.job_status
+
+    batch_cancel_cmd = Unicode('', config=True \,
+        help="Command to stop/cancel a previously submitted job. Formatted like batch_query_cmd."
+        )
+
+    def cancel_batch_job(self):
+        subvars = self.get_req_subvars()
+        subvars['job_id'] = self.job_id
+        cmd = self.batch_cancel_cmd.format(**subvars)
+        self.log.info('Cancelling job ' + self.job_id + ': ' + cmd)
+        run_command(cmd)
 
     def load_state(self, state):
         """load job_id from state"""
         super(BatchSpawnerBase, self).load_state(state)
         self.job_id = state.get('job_id', '')
+        self.job_status = state.get('job_status', '')
 
     def get_state(self):
         """add job_id to state"""
         state = super(BatchSpawnerBase, self).get_state()
         if self.job_id:
             state['job_id'] = self.job_id
+        if self.job_status:
+            state['job_status'] = self.job_status
         return state
 
     def clear_state(self):
         """clear job_id state"""
         super(BatchSpawnerBase, self).clear_state()
         self.job_id = ""
+        self.job_status = ''
 
     def make_preexec_fn(self, name):
-        """make preexec fn"""
+        """make preexec fn to change uid (if running as root) before job submission"""
         return set_user_setuid(name)
+
+    def state_ispending(self):
+        "Return boolean indicating if job is still waiting to run, likely by parsing self.job_status"
+        raise NotImplementedError("Subclass must provide implementation")
+
+    def state_isrunning(self):
+        "Return boolean indicating if job is running, likely by parsing self.job_status"
+        raise NotImplementedError("Subclass must provide implementation")
+
+    def state_gethost(self):
+        "Return string, hostname or addr of running job, likely by parsing self.job_status"
+        raise NotImplementedError("Subclass must provide implementation")
+
+    @gen.coroutine
+    def poll(self):
+        """Poll the process"""
+        if self.job_id is not None and len(self.job_id) > 0:
+            self.read_job_state()
+            if self.state_isrunning() or self.state_ispending():
+                return None
+            else:
+                self.clear_state()
+                return 1
+
+        if not self.job_id:
+            # no job id means it's not running
+            self.clear_state()
+            return 1
 
 class TorqueSpawner(BatchSpawnerBase):
     batch_script = Unicode("""#!/bin/sh
@@ -196,13 +279,15 @@ class TorqueSpawner(BatchSpawnerBase):
 #PBS -l nodes=1:ppn={nprocs}
 #PBS -l mem={memory}
 #PBS -N jupyterhub-singleuser
-#PBS -v JPY_API_TOKEN
+#PBS -v {keepvars}
 
-TODO - template var for jupyterhub-singleuser cmd
+{cmd}
 """,
         config=True)
 
+    batch_submit_cmd = Unicode('qsub', config=True)
     batch_query_cmd = Unicode('qstat -x {job_id}', config=True)
+    batch_cancel_cmd = Unicode('qdel {job_id}', config=True)
 
 class SlurmSpawner(BatchSpawnerBase):
     """A Spawner that just uses Popen to start local processes."""
@@ -274,22 +359,6 @@ class SlurmSpawner(BatchSpawnerBase):
 
         self.user.server.ip = notebook_ip 
         self.log.info("Notebook server ip is %s" % self.user.server.ip)
-
-    @gen.coroutine
-    def poll(self):
-        """Poll the process"""
-        if self.job_id is not None:
-            state = self._check_slurm_job_state()
-            if "RUNNING" in state or "PENDING" in state:
-                return None
-            else:
-                self.clear_state()
-                return 1
-
-        if not self.job_id:
-            # no job id means it's not running
-            self.clear_state()
-            return 1
 
     @gen.coroutine
     def _signal(self, sig):
