@@ -47,51 +47,6 @@ def run_command(cmd, input=None, env=None):
         out = out[0].decode().strip()
         return out
 
-def get_slurm_job_info(jobid):
-    """returns ip address of node that is running the job"""
-    cmd = 'squeue -h -j ' + jobid + ' -o %N'
-    print(cmd)
-    popen = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-    node_name = popen.communicate()[0].strip().decode() # convett bytes object to string
-    # now get the ip address of the node name
-    cmd = 'host %s' % node_name
-    print(cmd)
-    popen = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-    out = popen.communicate()[0].strip().decode()
-    node_ip = out.split(' ')[-1] # the last portion of the output should be the ip address
-
-    return node_ip
-
-def run_jupyterhub_singleuser(cmd, user):
-    sbatch = Template('''#!/bin/bash
-#SBATCH --partition=$queue
-#SBATCH --time=$hours:00:00
-#SBATCH -o /home/$user/jupyterhub_slurmspawner_%j.log
-#SBATCH --job-name=spawner-jupyterhub
-#SBATCH --workdir=/home/$user
-#SBATCH --mem=$mem
-###SBATCH --export=ALL
-#SBATCH --uid=$user
-#SBATCH --get-user-env=L
-
-which jupyterhub-singleuser
-$export_cmd
-$cmd
-    ''')
-
-    queue = "all"
-    mem = '200'
-    hours = '2'
-    full_cmd = cmd.split(';')
-    export_cmd = full_cmd[0]
-    cmd = full_cmd[1]
-    sbatch = sbatch.substitute(dict(export_cmd=export_cmd, cmd=cmd, queue=queue, mem=mem, hours=hours, user=user))
-    #serialsbatch+='cd %s' % "notebooks"
-    print('Submitting *****{\n%s\n}*****' % sbatch)
-    popen = subprocess.Popen('sbatch', shell = True, stdin = subprocess.PIPE, stdout = subprocess.PIPE)
-    out = popen.communicate(sbatch.encode())[0].strip() #e.g. something like "Submitted batch job 209"
-    return out
-
 class BatchSpawnerBase(Spawner):
     """Base class for spawners using resource manager batch job submission mechanisms
 
@@ -110,7 +65,8 @@ class BatchSpawnerBase(Spawner):
     and must provide implementations for the methods:
         state_ispending
         state_isrunning
-        state_gethost"""
+        state_gethost
+    """
 
     # override default since batch systems typically need longer
     start_timeout = Integer(300, config=True)
@@ -285,12 +241,15 @@ class TorqueSpawner(BatchSpawnerBase):
 """,
         config=True)
 
+    # outputs job id string
     batch_submit_cmd = Unicode('qsub', config=True)
+    # outputs job data XML string
     batch_query_cmd = Unicode('qstat -x {job_id}', config=True)
     batch_cancel_cmd = Unicode('qdel {job_id}', config=True)
 
-class SlurmSpawner(BatchSpawnerBase):
-    """A Spawner that just uses Popen to start local processes."""
+class UserEnvMixin:
+    """Mixin class that computes values for USER and HOME in the environment passed to
+    the job submission subprocess in case the batch system needs these for the batch script."""
 
     def user_env(self, env):
         """get user environment"""
@@ -301,6 +260,30 @@ class SlurmSpawner(BatchSpawnerBase):
     def _env_default(self):
         env = super()._env_default()
         return self.user_env(env)
+
+class SlurmSpawner(BatchSpawnerBase,UserEnvMixin):
+    """A Spawner that just uses Popen to start local processes."""
+
+    batch_script = Unicode("""#!/bin/bash
+#SBATCH --partition={queue}
+#SBATCH --time={runtime}
+#SBATCH -o /home/{username}/jupyterhub_slurmspawner_%j.log
+#SBATCH --job-name=spawner-jupyterhub
+#SBATCH --workdir=/home/$user
+#SBATCH --mem={memory}
+#SBATCH --export={keepvars}
+#SBATCH --uid={username}
+#SBATCH --get-user-env=L
+
+which jupyterhub-singleuser
+{cmd}
+""",
+        config=True)
+    # outputs line like "Submitted batch job 209"
+    batch_submit_cmd = Unicode('sbatch', config=True)
+    # outputs status and exec node like "RUNNING hostname"
+    batch_query_cmd = Unicode('squeue -h -j {job_id} -o "%T %B"', config=True) #
+    batch_cancel_cmd = Unicode('scancel {job_id}', config=True)
 
     def _check_slurm_job_state(self):
         if self.job_id in (None, ""):
@@ -329,7 +312,7 @@ class SlurmSpawner(BatchSpawnerBase):
         for k in ["JPY_API_TOKEN"]:
             cmd.insert(0, 'export %s="%s";' % (k, env[k]))
         #self.pid, stdin, stdout, stderr = execute(self.channel, ' '.join(cmd))
-        
+
         output = run_jupyterhub_singleuser(' '.join(cmd), self.user.name)
         output = output.decode() # convert bytes object to string
         self.log.debug("Stdout of trying to call run_jupyterhub_singleuser(): %s" % output)
@@ -354,10 +337,10 @@ class SlurmSpawner(BatchSpawnerBase):
                 self.log.info("Job %s failed to start!" % self.job_id)
                 return 1 # is this right? Or should I not return, or return a different thing?
                 # NOTE MM - no, start/stop don't return anything, server will poll()
-        
+
         notebook_ip = get_slurm_job_info(self.job_id)
 
-        self.user.server.ip = notebook_ip 
+        self.user.server.ip = notebook_ip
         self.log.info("Notebook server ip is %s" % self.user.server.ip)
 
     @gen.coroutine
