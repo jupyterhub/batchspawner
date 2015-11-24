@@ -31,7 +31,7 @@ from tornado import gen
 
 from jupyterhub.spawner import Spawner
 from traitlets import (
-    Instance, Integer, Unicode
+    Instance, Integer, Unicode, Float
 )
 
 from jupyterhub.utils import random_port
@@ -127,6 +127,10 @@ class BatchSpawnerBase(Spawner):
         help="Command to run to submit batch scripts. Formatted using req_xyz traits as {xyz}."
         )
 
+    def parse_job_id(self, output):
+        "Parse output of submit command to get job id."
+        return output
+
     def submit_batch_script(self):
         subvars = self.get_req_subvars()
         cmd = self.batch_submit_cmd.format(subvars)
@@ -135,7 +139,7 @@ class BatchSpawnerBase(Spawner):
         self.log.info('Spawner submitting job using ' + cmd)
         out = run_command(cmd, input=script, env=self.env)
         try:
-            self.job_id = out
+            self.job_id = self.parse_job_id(out)
         except:
             self.log.error('Job submission failed with exit code ' + out)
             self.job_id = ''
@@ -228,7 +232,111 @@ class BatchSpawnerBase(Spawner):
             self.clear_state()
             return 1
 
-class TorqueSpawner(BatchSpawnerBase):
+    startup_poll_interval = Float(0.5, config=True, \
+        help="Polling interval (seconds) to check job state during startup"
+        )
+
+    @gen.coroutine
+    def start(self):
+        """Start the process"""
+        self.user.server.port = random_port()
+        job = submit_batch_script()
+
+        # We are called with a timeout, and if the timeout expires this function will
+        # be interrupted at the next yield, and self.stop() will be called. 
+        # So this function should not return unless successful, and if unsuccessful
+        # should either raise and Exception or loop forever.
+        assert len(self.job_id) > 0
+        while True:
+            yield self.poll()
+            if self.state_isrunning():
+                break
+            else:
+                assert self.state_ispending()
+            yield gen.sleep(self.startup_poll_interval)
+
+        self.user.server.ip = self.state_gethost()
+        self.log.info("Notebook server job {0} started at {1}:{2}".format(
+                        self.job_id, self.user.server.ip, self.user.server.port)
+            )
+
+    @gen.coroutine
+    def stop(self, now=False):
+        """Stop the singleuser server job.
+
+        Returns immediately after sending job cancellation command if now=True, otherwise
+        tries to confirm that job is no longer running."""
+
+        self.log.info("Stopping server job " + self.job_id)
+        self.cancel_batch_job()
+        if now:
+            return
+        for i in range(10):
+            yield self.poll()
+            if not self.state_isrunning():
+                return
+            yield gen.sleep(1.0)
+        if self.job_id:
+            self.log.warn("Notebook server job {0} at {1}:{2} possibly failed to terminate".format(
+                             self.job_id, self.user.server.ip, self.user.server.port)
+
+import re
+
+class BatchSpawnerRegexStates(BatchSpawnerBase):
+    """Subclass of BatchSpawnerBase that uses config-supplied regular expressions
+    to interact with batch submission system state. Provides implementations of
+        state_ispending
+        state_isrunning
+        state_gethost
+
+    In their place, the user should supply the following configuration:
+        state_pending_re - regex that matches job_status if job is waiting to run
+        state_running_re - regex that matches job_status if job is running
+        state_exechost_re - regex with at least one capture group that extracts
+                            execution host from job_status
+        state_exechost_exp - if empty, notebook IP will be set to the contents of the
+            first capture group. If this variable is set, the match object
+            will be expanded using this string to obtain the notebook IP.
+            See Python docs: re.match.expand
+    """
+    state_pending_re = Unicode('', config=True,
+        help="Regex that matches job_status if job is waiting to run")
+    state_running_re = Unicode('', config=True,
+        help="Regex that matches job_status if job is running")
+    state_exechost_re = Unicode('', config=True,
+        help="Regex with at least one capture group that extracts "
+             "the execution host from job_status output")
+    state_exechost_exp = Unicode('', config=True,
+        help="""If empty, notebook IP will be set to the contents of the first capture group.
+
+        If this variable is set, the match object will be expanded using this string
+        to obtain the notebook IP.
+        See Python docs: re.match.expand""")
+
+    def state_ispending(self):
+        assert self.state_pending_re
+        if self.job_status and re.search(self.state_pending_re, self.job_status):
+            return True
+        else return False
+
+    def state_isrunning(self):
+        assert self.state_running_re
+        if self.job_status and re.search(self.state_running_re, self.job_status):
+            return True
+        else return False
+
+    def state_gethost(self):
+        assert self.state_exechost_re
+        match = re.search(self.state_exechost_re, self.job_status)
+        if not match:
+            self.log.error("Spawner unable to match host addr in job status: " + self.job_status)
+            return
+        if not self.state_exechost_exp:
+            return match.groups()[0]
+        else:
+            return match.expand(self.state_exechost_exp)
+
+class TorqueSpawner(BatchSpawnerRegexStates):
     batch_script = Unicode("""#!/bin/sh
 #PBS -q {queue}@{host}
 #PBS -l walltime={runtime}
@@ -246,6 +354,10 @@ class TorqueSpawner(BatchSpawnerBase):
     # outputs job data XML string
     batch_query_cmd = Unicode('qstat -x {job_id}', config=True)
     batch_cancel_cmd = Unicode('qdel {job_id}', config=True)
+    # search XML string for job_state - [QH] = pending, R = running, [CE] = done
+    state_pending_re = r'<job_state>[QH]</job_state>'
+    state_running_re = r'<job_state>R</job_state>'
+    state_exechost_re = r'<exec_host>((?:[\w_-]+\.?)+)/\d+'
 
 class UserEnvMixin:
     """Mixin class that computes values for USER and HOME in the environment passed to
@@ -261,7 +373,7 @@ class UserEnvMixin:
         env = super()._env_default()
         return self.user_env(env)
 
-class SlurmSpawner(BatchSpawnerBase,UserEnvMixin):
+class SlurmSpawner(BatchSpawnerRegexStates,UserEnvMixin):
     """A Spawner that just uses Popen to start local processes."""
 
     batch_script = Unicode("""#!/bin/bash
@@ -284,99 +396,20 @@ which jupyterhub-singleuser
     # outputs status and exec node like "RUNNING hostname"
     batch_query_cmd = Unicode('squeue -h -j {job_id} -o "%T %B"', config=True) #
     batch_cancel_cmd = Unicode('scancel {job_id}', config=True)
+    # use long-form states: PENDING,  CONFIGURING = pending
+    #  RUNNING,  COMPLETING = running
+    state_pending_re = r'^(?:PENDING|CONFIGURING)'
+    state_running_re = r'^(?:RUNNING|COMPLETING)'
+    state_exechost_re = r'\s+((?:[\w_-]+\.?)+)$'
 
-    def _check_slurm_job_state(self):
-        if self.job_id in (None, ""):
-            # job has been cancelled or failed, so don't even try the squeue command. This is because
-            # squeue will return RUNNING if you submit something like `squeue -h -j -o %T` and there's
-            # at least 1 job running
-            return ""
-        # check sacct to see if the job is still running
-        cmd = 'squeue -h -j ' + self.job_id + ' -o %T'
-        out = run_command(cmd)
-        self.log.info("Notebook server for user %s: Slurm jobid %s status: %s" % (self.user.name, self.job_id, out))
-        return out
-
-    @gen.coroutine
-    def start(self):
-        """Start the process"""
-        self.user.server.port = random_port()
-        cmd = []
-        env = self.env.copy()
-
-        cmd.extend(self.cmd)
-        cmd.extend(self.get_args())
-
-        self.log.debug("Env: %s", str(env))
-        self.log.info("Spawning %s", ' '.join(cmd))
-        for k in ["JPY_API_TOKEN"]:
-            cmd.insert(0, 'export %s="%s";' % (k, env[k]))
-        #self.pid, stdin, stdout, stderr = execute(self.channel, ' '.join(cmd))
-
-        output = run_jupyterhub_singleuser(' '.join(cmd), self.user.name)
-        output = output.decode() # convert bytes object to string
-        self.log.debug("Stdout of trying to call run_jupyterhub_singleuser(): %s" % output)
-        self.job_id = output.split(' ')[-1] # the job id should be the very last part of the string
-
+    def parse_job_id(self, output):
         # make sure jobid is really a number
         try:
-            int(self.job_id)
-        except ValueError:
-            self.log.info("sbatch returned this at the end of their string: %s" % self.job_id)
-
-        #time.sleep(2)
-        job_state = self._check_slurm_job_state()
-        for i in range(10):
-            self.log.info("job_state is %s" % job_state)
-            if 'RUNNING' in job_state:
-                break
-            elif 'PENDING' in job_state:
-                job_state = self._check_slurm_job_state()
-                time.sleep(1)
-            else:
-                self.log.info("Job %s failed to start!" % self.job_id)
-                return 1 # is this right? Or should I not return, or return a different thing?
-                # NOTE MM - no, start/stop don't return anything, server will poll()
-
-        notebook_ip = get_slurm_job_info(self.job_id)
-
-        self.user.server.ip = notebook_ip
-        self.log.info("Notebook server ip is %s" % self.user.server.ip)
-
-    @gen.coroutine
-    def _signal(self, sig):
-        """simple implementation of signal
-
-        we can use it when we are using setuid (we are root)"""
-        return True
-
-    @gen.coroutine
-    def stop(self, now=False):
-        """stop the subprocess
-
-        if `now`, skip waiting for clean shutdown
-        """
-        status = yield self.poll()
-        self.log.info("*** Stopping notebook for user %s. Status is currently %s ****" % (self.user.name, status))
-        if status is not None:
-            # job is not running
-            return
-
-        cmd = 'scancel ' + self.job_id
-        self.log.info("cancelling job %s" % self.job_id)
-
-        job_state = run_command(cmd)
-        
-        if job_state in ("CANCELLED", "COMPLETED", "FAILED", "COMPLETING"):
-            return
-        else:
-            status = yield self.poll()
-            if status is None:
-                self.log.warn("Job %s never cancelled" % self.job_id)
-
-
-if __name__ == "__main__":
-
-        run_jupyterhub_singleuser("jupyterhub-singleuser", 3434)
+            id = output.split(' ')[-1]
+            int(id)
+        except Exception as e:
+            self.log.error("SlurmSpawner unable to parse job ID from text: " + output)
+            raise e
+        return id
 
 # vim: set ai expandtab softtabstop=4:
