@@ -39,6 +39,7 @@ from jupyterhub.spawner import set_user_setuid
 
 def run_command(cmd, input=None, env=None):
     popen = subprocess.Popen(cmd, shell=True, env=env, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    inbytes = None
     if input: inbytes = input.encode()
     out = popen.communicate(input=inbytes)
     if out[1] is not None:
@@ -133,12 +134,14 @@ class BatchSpawnerBase(Spawner):
 
     def submit_batch_script(self):
         subvars = self.get_req_subvars()
-        cmd = self.batch_submit_cmd.format(subvars)
-        subvars['cmd'] = self.cmd + self.get_args()
-        script = self.batch_script.format(subvars)
+        cmd = self.batch_submit_cmd.format(**subvars)
+        subvars['cmd'] = ' '.join(self.cmd + self.get_args())
+        script = self.batch_script.format(**subvars)
         self.log.info('Spawner submitting job using ' + cmd)
+        self.log.info('Spawner submitted script:\n' + script)
         out = run_command(cmd, input=script, env=self.env)
         try:
+            self.log.info('Job submitted. cmd: ' + cmd + ' output: ' + out)
             self.job_id = self.parse_job_id(out)
         except:
             self.log.error('Job submission failed with exit code ' + out)
@@ -156,19 +159,20 @@ class BatchSpawnerBase(Spawner):
             # job not running
             self.job_status = ''
             return self.job_status
-        subvars = get_req_subvars()
+        subvars = self.get_req_subvars()
         subvars['job_id'] = self.job_id
         cmd = self.batch_query_cmd.format(**subvars)
-        self.log.info('Spawner querying job: ' + cmd)
+        self.log.debug('Spawner querying job: ' + cmd)
         try:
             out = run_command(cmd)
             self.job_status = out
-        except:
+        except Exception as e:
             self.log.error('Error querying job ' + self.job_id)
             self.job_status = ''
+            raise e
         return self.job_status
 
-    batch_cancel_cmd = Unicode('', config=True \,
+    batch_cancel_cmd = Unicode('', config=True,
         help="Command to stop/cancel a previously submitted job. Formatted like batch_query_cmd."
         )
 
@@ -239,8 +243,9 @@ class BatchSpawnerBase(Spawner):
     @gen.coroutine
     def start(self):
         """Start the process"""
-        self.user.server.port = random_port()
-        job = submit_batch_script()
+        if not self.user.server.port:
+            self.user.server.port = random_port()
+        job = self.submit_batch_script()
 
         # We are called with a timeout, and if the timeout expires this function will
         # be interrupted at the next yield, and self.stop() will be called. 
@@ -252,6 +257,11 @@ class BatchSpawnerBase(Spawner):
             if self.state_isrunning():
                 break
             else:
+                if self.state_ispending():
+                    self.log.debug('Job ' + self.job_id + ' still pending')
+                else:
+                    self.log.warn('Job ' + self.job_id + ' neither pending nor running.\n' +
+                        self.job_status)
                 assert self.state_ispending()
             yield gen.sleep(self.startup_poll_interval)
 
@@ -279,6 +289,7 @@ class BatchSpawnerBase(Spawner):
         if self.job_id:
             self.log.warn("Notebook server job {0} at {1}:{2} possibly failed to terminate".format(
                              self.job_id, self.user.server.ip, self.user.server.port)
+                )
 
 import re
 
@@ -317,13 +328,13 @@ class BatchSpawnerRegexStates(BatchSpawnerBase):
         assert self.state_pending_re
         if self.job_status and re.search(self.state_pending_re, self.job_status):
             return True
-        else return False
+        else: return False
 
     def state_isrunning(self):
         assert self.state_running_re
         if self.job_status and re.search(self.state_running_re, self.job_status):
             return True
-        else return False
+        else: return False
 
     def state_gethost(self):
         assert self.state_exechost_re
@@ -350,14 +361,14 @@ class TorqueSpawner(BatchSpawnerRegexStates):
         config=True)
 
     # outputs job id string
-    batch_submit_cmd = Unicode('qsub', config=True)
+    batch_submit_cmd = Unicode('sudo -E -u {username} qsub', config=True)
     # outputs job data XML string
-    batch_query_cmd = Unicode('qstat -x {job_id}', config=True)
-    batch_cancel_cmd = Unicode('qdel {job_id}', config=True)
+    batch_query_cmd = Unicode('sudo -E -u {username} qstat -x {job_id}', config=True)
+    batch_cancel_cmd = Unicode('sudo -E -u {username} qdel {job_id}', config=True)
     # search XML string for job_state - [QH] = pending, R = running, [CE] = done
-    state_pending_re = r'<job_state>[QH]</job_state>'
-    state_running_re = r'<job_state>R</job_state>'
-    state_exechost_re = r'<exec_host>((?:[\w_-]+\.?)+)/\d+'
+    state_pending_re = Unicode(r'<job_state>[QH]</job_state>', config=True)
+    state_running_re = Unicode(r'<job_state>R</job_state>', config=True)
+    state_exechost_re = Unicode(r'<exec_host>((?:[\w_-]+\.?)+)/\d+', config=True)
 
 class UserEnvMixin:
     """Mixin class that computes values for USER and HOME in the environment passed to
@@ -392,15 +403,15 @@ which jupyterhub-singleuser
 """,
         config=True)
     # outputs line like "Submitted batch job 209"
-    batch_submit_cmd = Unicode('sbatch', config=True)
+    batch_submit_cmd = Unicode('sudo -E -u {username} sbatch', config=True)
     # outputs status and exec node like "RUNNING hostname"
-    batch_query_cmd = Unicode('squeue -h -j {job_id} -o "%T %B"', config=True) #
-    batch_cancel_cmd = Unicode('scancel {job_id}', config=True)
+    batch_query_cmd = Unicode('sudo -E -u {username} squeue -h -j {job_id} -o "%T %B"', config=True) #
+    batch_cancel_cmd = Unicode('sudo -E -u {username} scancel {job_id}', config=True)
     # use long-form states: PENDING,  CONFIGURING = pending
     #  RUNNING,  COMPLETING = running
-    state_pending_re = r'^(?:PENDING|CONFIGURING)'
-    state_running_re = r'^(?:RUNNING|COMPLETING)'
-    state_exechost_re = r'\s+((?:[\w_-]+\.?)+)$'
+    state_pending_re = Unicode(r'^(?:PENDING|CONFIGURING)', config=True)
+    state_running_re = Unicode(r'^(?:RUNNING|COMPLETING)', config=True)
+    state_exechost_re = Unicode(r'\s+((?:[\w_-]+\.?)+)$', config=True)
 
     def parse_job_id(self, output):
         # make sure jobid is really a number
