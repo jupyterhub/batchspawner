@@ -24,13 +24,13 @@ with open(pjoin(here, 'version.py')) as f:
     exec(f.read(), {}, version_ns)
 
 setup_args = dict(
-    name                = 'slurmspawner',
-    packages            = ['slurmspawner'],
+    name                = 'batchspawner',
+    packages            = ['batchspawner'],
     version             = version_ns['__version__'],
-    description         = """Slurmspawner: A custom spawner for Jupyterhub to spawn notebooks using Slurm.""",
+    description         = """Batchspawner: A spawner for Jupyterhub to spawn notebooks using batch resource managers.""",
     long_description    = "",
-    author              = "Andrea Zonca, Mike Gilbert",
-    author_email        = "m code@andreazonca.com, mike@nau.edu",
+    author              = "Michael Milligan, Andrea Zonca, Mike Gilbert",
+    author_email        = "milligan@umn.edu, m code@andreazonca.com, mike@nau.edu",
     url                 = "http://jupyter.org",
     license             = "BSD",
     platforms           = "Linux, Mac OS X",
