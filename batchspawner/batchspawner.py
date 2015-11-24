@@ -16,16 +16,10 @@ Common attributes of batch submission / resource manager environments will inclu
   * job names instead of PIDs
 """
 import signal
-import errno
 import pwd
 import os
-import getpass
-import time
-import pipes
 from subprocess import Popen, call
 import subprocess
-from string import Template
-import tempfile
 
 from tornado import gen
 
