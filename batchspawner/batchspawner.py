@@ -22,6 +22,7 @@ from subprocess import Popen, call
 import subprocess
 
 from tornado import gen
+from tornado.process import Subprocess
 
 from jupyterhub.spawner import Spawner
 from traitlets import (
@@ -31,15 +32,20 @@ from traitlets import (
 from jupyterhub.utils import random_port
 from jupyterhub.spawner import set_user_setuid
 
+@gen.coroutine
 def run_command(cmd, input=None, env=None):
-    popen = subprocess.Popen(cmd, shell=True, env=env, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    proc = Subprocess(cmd, shell=True, env=env, stdin=Subprocess.STREAM, stdout=Subprocess.STREAM)
     inbytes = None
-    if input: inbytes = input.encode()
-    out = popen.communicate(input=inbytes)
-    if out[1] is not None:
-        return out[1] # exit error?
+    if input:
+        inbytes = input.encode()
+        yield proc.stdin.write(inbytes)
+        proc.stdin.close()
+    out = yield proc.stdout.read_until_close()
+    err = yield proc.wait_for_exit()
+    if err != 0:
+        return err # exit error?
     else:
-        out = out[0].decode().strip()
+        out = out.decode().strip()
         return out
 
 class BatchSpawnerBase(Spawner):
@@ -126,6 +132,7 @@ class BatchSpawnerBase(Spawner):
         "Parse output of submit command to get job id."
         return output
 
+    @gen.coroutine
     def submit_batch_script(self):
         subvars = self.get_req_subvars()
         cmd = self.batch_submit_cmd.format(**subvars)
@@ -133,7 +140,7 @@ class BatchSpawnerBase(Spawner):
         script = self.batch_script.format(**subvars)
         self.log.info('Spawner submitting job using ' + cmd)
         self.log.info('Spawner submitted script:\n' + script)
-        out = run_command(cmd, input=script, env=self.env)
+        out = yield run_command(cmd, input=script, env=self.env)
         try:
             self.log.info('Job submitted. cmd: ' + cmd + ' output: ' + out)
             self.job_id = self.parse_job_id(out)
@@ -148,6 +155,7 @@ class BatchSpawnerBase(Spawner):
              "and self.job_id as {job_id}."
         )
 
+    @gen.coroutine
     def read_job_state(self):
         if self.job_id is None or len(self.job_id) == 0:
             # job not running
@@ -158,7 +166,7 @@ class BatchSpawnerBase(Spawner):
         cmd = self.batch_query_cmd.format(**subvars)
         self.log.debug('Spawner querying job: ' + cmd)
         try:
-            out = run_command(cmd)
+            out = yield run_command(cmd)
             self.job_status = out
         except Exception as e:
             self.log.error('Error querying job ' + self.job_id)
@@ -170,12 +178,13 @@ class BatchSpawnerBase(Spawner):
         help="Command to stop/cancel a previously submitted job. Formatted like batch_query_cmd."
         )
 
+    @gen.coroutine
     def cancel_batch_job(self):
         subvars = self.get_req_subvars()
         subvars['job_id'] = self.job_id
         cmd = self.batch_cancel_cmd.format(**subvars)
         self.log.info('Cancelling job ' + self.job_id + ': ' + cmd)
-        run_command(cmd)
+        yield run_command(cmd)
 
     def load_state(self, state):
         """load job_id from state"""
@@ -218,7 +227,7 @@ class BatchSpawnerBase(Spawner):
     def poll(self):
         """Poll the process"""
         if self.job_id is not None and len(self.job_id) > 0:
-            self.read_job_state()
+            yield self.read_job_state()
             if self.state_isrunning() or self.state_ispending():
                 return None
             else:
@@ -239,7 +248,7 @@ class BatchSpawnerBase(Spawner):
         """Start the process"""
         if not self.user.server.port:
             self.user.server.port = random_port()
-        job = self.submit_batch_script()
+        job = yield self.submit_batch_script()
 
         # We are called with a timeout, and if the timeout expires this function will
         # be interrupted at the next yield, and self.stop() will be called. 
@@ -272,7 +281,7 @@ class BatchSpawnerBase(Spawner):
         tries to confirm that job is no longer running."""
 
         self.log.info("Stopping server job " + self.job_id)
-        self.cancel_batch_job()
+        yield self.cancel_batch_job()
         if now:
             return
         for i in range(10):
