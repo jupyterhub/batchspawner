@@ -39,7 +39,7 @@ def run_command(cmd, input=None, env=None):
     if input:
         inbytes = input.encode()
         yield proc.stdin.write(inbytes)
-        proc.stdin.close()
+    proc.stdin.close()
     out = yield proc.stdout.read_until_close()
     proc.stdout.close()
     err = yield proc.wait_for_exit()
