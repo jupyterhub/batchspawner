@@ -41,6 +41,7 @@ def run_command(cmd, input=None, env=None):
         yield proc.stdin.write(inbytes)
         proc.stdin.close()
     out = yield proc.stdout.read_until_close()
+    proc.stdout.close()
     err = yield proc.wait_for_exit()
     if err != 0:
         return err # exit error?
@@ -171,8 +172,8 @@ class BatchSpawnerBase(Spawner):
         except Exception as e:
             self.log.error('Error querying job ' + self.job_id)
             self.job_status = ''
-            raise e
-        return self.job_status
+        finally:
+            return self.job_status
 
     batch_cancel_cmd = Unicode('', config=True,
         help="Command to stop/cancel a previously submitted job. Formatted like batch_query_cmd."
