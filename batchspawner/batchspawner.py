@@ -249,6 +249,7 @@ class BatchSpawnerBase(Spawner):
         """Start the process"""
         if not self.user.server.port:
             self.user.server.port = random_port()
+            self.db.commit()
         job = yield self.submit_batch_script()
 
         # We are called with a timeout, and if the timeout expires this function will
@@ -270,6 +271,7 @@ class BatchSpawnerBase(Spawner):
             yield gen.sleep(self.startup_poll_interval)
 
         self.user.server.ip = self.state_gethost()
+        self.db.commit()
         self.log.info("Notebook server job {0} started at {1}:{2}".format(
                         self.job_id, self.user.server.ip, self.user.server.port)
             )
