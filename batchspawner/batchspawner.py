@@ -21,6 +21,8 @@ import os
 from subprocess import Popen, call
 import subprocess
 
+import xml.etree.ElementTree as ET
+
 from tornado import gen
 from tornado.process import Subprocess
 
@@ -138,6 +140,7 @@ class BatchSpawnerBase(Spawner):
         subvars = self.get_req_subvars()
         cmd = self.batch_submit_cmd.format(**subvars)
         subvars['cmd'] = ' '.join(self.cmd + self.get_args())
+        subvars['user_options'] = self.user_options
         script = self.batch_script.format(**subvars)
         self.log.info('Spawner submitting job using ' + cmd)
         self.log.info('Spawner submitted script:\n' + script)
@@ -426,5 +429,59 @@ which jupyterhub-singleuser
             self.log.error("SlurmSpawner unable to parse job ID from text: " + output)
             raise e
         return id
+
+class GridengineSpawner(BatchSpawnerBase):
+    batch_script = Unicode("""#!/bin/bash
+#$ -j yes
+#$ -N spawner-jupyterhub
+#$ -v {keepvars}
+#$ {user_options[args]}
+
+{cmd}
+""",
+        config=True)
+
+    # outputs job id string
+    batch_submit_cmd = Unicode('sudo -E -u {username} qsub', config=True)
+    # outputs job data XML string
+    batch_query_cmd = Unicode('sudo -E -u {username} qstat -xml', config=True)
+    batch_cancel_cmd = Unicode('sudo -E -u {username} qdel {job_id}', config=True)
+
+    options_form = """
+        <label for="args">Extra qsub arguments</label>
+        <input name="args" placeholder="e.g. -l gpu=4"></input>
+        """
+
+    def options_from_form(self, formdata):
+        return dict(args = formdata['args'][0])
+
+    def parse_job_id(self, output):
+        return output.split(' ')[2]
+
+    def state_ispending(self):
+        if self.job_status:
+            job_info = ET.fromstring(self.job_status).find(
+                    ".//job_list[JB_job_number='{0}']".format(self.job_id))
+            if job_info is not None:
+                return job_info.attrib.get('state') == 'pending'
+        return False
+
+    def state_isrunning(self):
+        if self.job_status:
+            job_info = ET.fromstring(self.job_status).find(
+                    ".//job_list[JB_job_number='{0}']".format(self.job_id))
+            if job_info is not None:
+                return job_info.attrib.get('state') == 'running'
+        return False
+
+    def state_gethost(self):
+        if self.job_status:
+            queue_name = ET.fromstring(self.job_status).find(
+                    ".//job_list[JB_job_number='{0}']/queue_name".format(self.job_id))
+            if queue_name is not None and queue_name.text:
+                return queue_name.text.split('@')[1]
+
+        self.log.error("Spawner unable to match host addr in job {0} with status {1}".format(self.job_id, self.job_status))
+        return
 
 # vim: set ai expandtab softtabstop=4:
