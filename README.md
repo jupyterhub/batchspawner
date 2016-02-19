@@ -109,26 +109,24 @@ clusters, as well as an option to run a local notebook directly on the jupyterhu
    c.Spawner.http_timeout = 120
    #------------------------------------------------------------------------------
    # BatchSpawnerBase configuration
-   #   Even though we will override these, providing default values gives us the option not to
+   #   Providing default values that we may omit in the profiles
    #------------------------------------------------------------------------------
-   c.BatchSpawnerBase.req_nprocs = '2'
-   c.BatchSpawnerBase.req_queue = 'mesabi'
-   c.BatchSpawnerBase.req_host = 'mesabim3.msi.umn.edu'
+   c.BatchSpawnerBase.req_host = 'mesabi.xyz.edu'
    c.BatchSpawnerBase.req_runtime = '12:00:00'
-   c.BatchSpawnerBase.req_memory = '4gb'
-   c.TorqueSpawner.state_exechost_exp = r'in-\1.mesabi.msi.umn.edu'
+   c.TorqueSpawner.state_exechost_exp = r'in-\1.mesabi.xyz.edu'
    #------------------------------------------------------------------------------
    # ProfilesSpawner configuration
    #------------------------------------------------------------------------------
-   # List of profiles to offer for selection. Signature is: List(Tuple( Unicode,
-   # Unicode, Type(Spawner), Dict )) corresponding to profile display name, unique
-   # key, Spawner class, dictionary of spawner config options.
+   # List of profiles to offer for selection. Signature is:
+   #   List(Tuple( Unicode, Unicode, Type(Spawner), Dict ))
+   # corresponding to profile display name, unique key, Spawner class,
+   # dictionary of spawner config options.
    # 
    # The first three values will be exposed in the input_template as {display},
    # {key}, and {type}
    #
    c.ProfilesSpawner.profiles = [
-      ( "Local server", 'local', 'jupyterhub.spawner.LocalProcessSpawner', {'ip':'127.0.0.1'} ),
+      ( "Local server", 'local', 'jupyterhub.spawner.LocalProcessSpawner', {'ip':'0.0.0.0'} ),
       ('Mesabi - 2 cores, 4 GB, 8 hours', 'mesabi2c4g12h', 'batchspawner.TorqueSpawner',
          dict(req_nprocs='2', req_queue='mesabi', req_runtime='8:00:00', req_memory='4gb')),
       ('Mesabi - 12 cores, 128 GB, 4 hours', 'mesabi128gb', 'batchspawner.TorqueSpawner',
