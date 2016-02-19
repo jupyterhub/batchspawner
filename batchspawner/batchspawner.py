@@ -99,6 +99,10 @@ class BatchSpawnerBase(Spawner):
         help="Length of time for submitted job to run"
         )
 
+    req_options = Unicode('', config=True, \
+        help="Other options to include into job submission script"
+        )
+
     req_username = Unicode()
     def _req_username_default(self):
         return self.user.name
@@ -365,6 +369,7 @@ class TorqueSpawner(BatchSpawnerRegexStates):
 #PBS -l mem={memory}
 #PBS -N jupyterhub-singleuser
 #PBS -v {keepvars}
+#PBS {options}
 
 {cmd}
 """,
@@ -407,6 +412,7 @@ class SlurmSpawner(BatchSpawnerRegexStates,UserEnvMixin):
 #SBATCH --export={keepvars}
 #SBATCH --uid={username}
 #SBATCH --get-user-env=L
+#SBATCH {options}
 
 which jupyterhub-singleuser
 {cmd}
@@ -438,7 +444,7 @@ class GridengineSpawner(BatchSpawnerBase):
 #$ -j yes
 #$ -N spawner-jupyterhub
 #$ -v {keepvars}
-#$ {user_options[args]}
+#$ {options}
 
 {cmd}
 """,
@@ -449,14 +455,6 @@ class GridengineSpawner(BatchSpawnerBase):
     # outputs job data XML string
     batch_query_cmd = Unicode('sudo -E -u {username} qstat -xml', config=True)
     batch_cancel_cmd = Unicode('sudo -E -u {username} qdel {job_id}', config=True)
-
-    options_form = """
-        <label for="args">Extra qsub arguments</label>
-        <input name="args" placeholder="e.g. -l gpu=4"></input>
-        """
-
-    def options_from_form(self, formdata):
-        return dict(args = formdata['args'][0])
 
     def parse_job_id(self, output):
         return output.split(' ')[2]
