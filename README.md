@@ -93,9 +93,9 @@ by the wrapped Spawner class.
 
 `ProfilesSpawner` leverages the `Spawner` options form feature to allow user-driven
 configuration of Spawner classes while permitting:
-1. configuration of Spawner classes that don't natively implement options_form
-2. administrator control of allowed configuration changes
-3. runtime choice of which Spawner backend to launch
+   * configuration of Spawner classes that don't natively implement options_form
+   * administrator control of allowed configuration changes
+   * runtime choice of which Spawner backend to launch
 
 ###Example
 
