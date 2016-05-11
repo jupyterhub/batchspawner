@@ -109,7 +109,7 @@ class BatchSpawnerBase(Spawner):
 
     req_keepvars = Unicode()
     def _req_keepvars_default(self):
-        return ','.join(self.env.keys())
+        return ','.join(self.get_env().keys())
 
     batch_script = Unicode('', config=True, \
         help="Template for job submission script. Traits on this class named like req_xyz "
@@ -149,7 +149,7 @@ class BatchSpawnerBase(Spawner):
         script = self.batch_script.format(**subvars)
         self.log.info('Spawner submitting job using ' + cmd)
         self.log.info('Spawner submitted script:\n' + script)
-        out = yield run_command(cmd, input=script, env=self.env)
+        out = yield run_command(cmd, input=script, env=self.get_env())
         try:
             self.log.info('Job submitted. cmd: ' + cmd + ' output: ' + out)
             self.job_id = self.parse_job_id(out)
