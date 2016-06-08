@@ -403,8 +403,17 @@ class UserEnvMixin:
 class SlurmSpawner(BatchSpawnerRegexStates,UserEnvMixin):
     """A Spawner that just uses Popen to start local processes."""
 
+    # all these req_foo traits will be available as substvars for templated strings
+    req_partition = Unicode('', config=True, \
+        help="Partition name to submit job to resource manager"
+        )
+
+    req_qos = Unicode('', config=True, \
+        help="QoS name to submit job to resource manager"
+        )
+
     batch_script = Unicode("""#!/bin/bash
-#SBATCH --partition={queue}
+#SBATCH --partition={partition}
 #SBATCH --time={runtime}
 #SBATCH --output={homedir}/jupyterhub_slurmspawner_%j.log
 #SBATCH --job-name=spawner-jupyterhub
