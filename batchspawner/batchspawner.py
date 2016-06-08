@@ -142,6 +142,7 @@ class BatchSpawnerBase(Spawner):
     @gen.coroutine
     def submit_batch_script(self):
         subvars = self.get_req_subvars()
+        subvars['homedir'] = pwd.getpwnam(self.user.name).pw_dir
         cmd = self.batch_submit_cmd.format(**subvars)
         subvars['cmd'] = ' '.join(self.cmd + self.get_args())
         if hasattr(self, 'user_options'):
@@ -405,9 +406,9 @@ class SlurmSpawner(BatchSpawnerRegexStates,UserEnvMixin):
     batch_script = Unicode("""#!/bin/bash
 #SBATCH --partition={queue}
 #SBATCH --time={runtime}
-#SBATCH -o /home/{username}/jupyterhub_slurmspawner_%j.log
+#SBATCH --output={homedir}/jupyterhub_slurmspawner_%j.log
 #SBATCH --job-name=spawner-jupyterhub
-#SBATCH --workdir=/home/$user
+#SBATCH --workdir={homedir}
 #SBATCH --mem={memory}
 #SBATCH --export={keepvars}
 #SBATCH --uid={username}
