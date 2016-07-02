@@ -142,6 +142,7 @@ class BatchSpawnerBase(Spawner):
     @gen.coroutine
     def submit_batch_script(self):
         subvars = self.get_req_subvars()
+        subvars['homedir'] = pwd.getpwnam(self.user.name).pw_dir
         cmd = self.batch_submit_cmd.format(**subvars)
         subvars['cmd'] = ' '.join(self.cmd + self.get_args())
         if hasattr(self, 'user_options'):
@@ -402,12 +403,21 @@ class UserEnvMixin:
 class SlurmSpawner(BatchSpawnerRegexStates,UserEnvMixin):
     """A Spawner that just uses Popen to start local processes."""
 
+    # all these req_foo traits will be available as substvars for templated strings
+    req_partition = Unicode('', config=True, \
+        help="Partition name to submit job to resource manager"
+        )
+
+    req_qos = Unicode('', config=True, \
+        help="QoS name to submit job to resource manager"
+        )
+
     batch_script = Unicode("""#!/bin/bash
-#SBATCH --partition={queue}
+#SBATCH --partition={partition}
 #SBATCH --time={runtime}
-#SBATCH -o /home/{username}/jupyterhub_slurmspawner_%j.log
+#SBATCH --output={homedir}/jupyterhub_slurmspawner_%j.log
 #SBATCH --job-name=spawner-jupyterhub
-#SBATCH --workdir=/home/$user
+#SBATCH --workdir={homedir}
 #SBATCH --mem={memory}
 #SBATCH --export={keepvars}
 #SBATCH --uid={username}
