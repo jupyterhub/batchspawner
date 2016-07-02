@@ -107,6 +107,11 @@ class BatchSpawnerBase(Spawner):
     def _req_username_default(self):
         return self.user.name
 
+    # Useful IF getpwnam on submit host returns correct info for exec host
+    req_homedir = Unicode()
+    def _req_homedir_default(self):
+        return pwd.getpwnam(self.user.name).pw_dir
+
     req_keepvars = Unicode()
     def _req_keepvars_default(self):
         return ','.join(self.get_env().keys())
@@ -142,7 +147,6 @@ class BatchSpawnerBase(Spawner):
     @gen.coroutine
     def submit_batch_script(self):
         subvars = self.get_req_subvars()
-        subvars['homedir'] = pwd.getpwnam(self.user.name).pw_dir
         cmd = self.batch_submit_cmd.format(**subvars)
         subvars['cmd'] = ' '.join(self.cmd + self.get_args())
         if hasattr(self, 'user_options'):
