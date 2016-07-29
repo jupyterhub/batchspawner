@@ -27,23 +27,28 @@ def new_spawner(db, **kwargs):
     kwargs.setdefault('poll_interval', 1)
     return BatchDummy(db=db, **kwargs)
 
+def test_stress_submit(db, io_loop):
+    for i in range(200):
+        time.sleep(0.01)
+        test_spawner_start_stop_poll(db, io_loop)
+
 def test_spawner_start_stop_poll(db, io_loop):
     spawner = new_spawner(db=db)
 
-    status = io_loop.run_sync(spawner.poll)
+    status = io_loop.run_sync(spawner.poll, timeout=5)
     assert status == 1
     assert spawner.job_id == ''
     assert spawner.get_state() == {}
 
-    io_loop.run_sync(spawner.start, timeout=30)
+    io_loop.run_sync(spawner.start, timeout=5)
     assert spawner.user.server.ip == 'userhost123'
     assert spawner.job_id == '12345'
     
-    status = io_loop.run_sync(spawner.poll)
+    status = io_loop.run_sync(spawner.poll, timeout=5)
     assert status is None
     spawner.batch_query_cmd = 'echo NOPE'
-    io_loop.run_sync(spawner.stop)
-    status = io_loop.run_sync(spawner.poll)
+    io_loop.run_sync(spawner.stop, timeout=5)
+    status = io_loop.run_sync(spawner.poll, timeout=5)
     assert status == 1
     assert spawner.get_state() == {}
 
@@ -67,17 +72,12 @@ def test_spawner_state_reload(db, io_loop):
 def test_submit_failure(db, io_loop):
     spawner = new_spawner(db=db)
     assert spawner.get_state() == {}
-    spawner.batch_submit_cmd = 'true'
+    spawner.batch_submit_cmd = 'cat > /dev/null; true'
     with pytest.raises(AssertionError) as e_info:
         io_loop.run_sync(spawner.start, timeout=30)
     assert "0 = len('')" in str(e_info.value)
     assert spawner.job_id == ''
     assert spawner.job_status == ''
-
-def test_stress_submit(db, io_loop):
-    for i in range(200):
-        test_spawner_start_stop_poll(db, io_loop)
-        time.sleep(0.01)
 
 def test_pending_fails(db, io_loop):
     spawner = new_spawner(db=db)
