@@ -21,7 +21,7 @@ install:
     - pip install --pre -f travis-wheels/wheelhouse -r jupyterhub/dev-requirements.txt .
     - pip install --pre -e jupyterhub
 script:
-    - travis_retry py.test --cov batchspawner batchspawner/tests -v
+    - travis_retry py.test --lf --cov batchspawner batchspawner/tests -v
 #after_success:
 #    - codecov
 # matrix:
