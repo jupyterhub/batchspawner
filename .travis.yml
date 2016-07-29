@@ -1,0 +1,30 @@
+# http://travis-ci.org/#!/jupyter/jupyterhub
+language: python
+sudo: false
+python:
+    - 3.5
+    - 3.4
+    - 3.3
+env:
+    - JHUB_VER=0.5.0
+    - JHUB_VER=0.6.1
+matrix:
+    include:
+    - python: 3.5
+      env: JHUB_VER=master
+
+before_install:
+    - npm install -g configurable-http-proxy
+    - git clone --quiet --depth 1 https://github.com/minrk/travis-wheels travis-wheels
+    - git clone --quiet --branch $JHUB_VER https://github.com/jupyter/jupyterhub.git jupyterhub
+install:
+    - pip install --pre -f travis-wheels/wheelhouse -r jupyterhub/dev-requirements.txt .
+    - pip install --pre -e jupyterhub
+script:
+    - travis_retry py.test --lf --cov batchspawner batchspawner/tests -v
+#after_success:
+#    - codecov
+# matrix:
+#   include:
+#     - python: 3.5
+#       env: JUPYTERHUB_TEST_SUBDOMAIN_HOST=http://127.0.0.1.xip.io:8000

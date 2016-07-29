@@ -25,6 +25,7 @@ import xml.etree.ElementTree as ET
 
 from tornado import gen
 from tornado.process import Subprocess
+from tornado.iostream import StreamClosedError
 
 from jupyterhub.spawner import Spawner
 from traitlets import (
@@ -40,7 +41,11 @@ def run_command(cmd, input=None, env=None):
     inbytes = None
     if input:
         inbytes = input.encode()
-        yield proc.stdin.write(inbytes)
+        try:
+            yield proc.stdin.write(inbytes)
+        except StreamClosedError as exp:
+            # Apparently harmless
+            pass
     proc.stdin.close()
     out = yield proc.stdout.read_until_close()
     proc.stdout.close()

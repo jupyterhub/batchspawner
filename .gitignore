@@ -2,3 +2,6 @@
 *.log
 *.pyc
 __pycache__/
+.cache/
+.coverage
+*~
