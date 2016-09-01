@@ -24,7 +24,7 @@ This package also includes WrapSpawner and ProfilesSpawner, which provide mechan
 ###Overview
 
 This file contains an abstraction layer for batch job queueing systems (`BatchSpawnerBase`), and implements
-Jupyterhub spawners for Torque, SLURM, SGE, and eventually others.
+Jupyterhub spawners for Torque, SLURM, SGE, HTCondor and eventually others.
 Common attributes of batch submission / resource manager environments will include notions of:
   * queue names, resource manager addresses
   * resource limits including runtime, number of processes, memory
