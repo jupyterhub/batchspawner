@@ -504,4 +504,39 @@ class GridengineSpawner(BatchSpawnerBase):
         self.log.error("Spawner unable to match host addr in job {0} with status {1}".format(self.job_id, self.job_status))
         return
 
+class CondorSpawner(BatchSpawnerRegexStates):
+    batch_script = Unicode("""
+Executable = /bin/sh
+RequestMemory = {memory}
+RequestCpus = {nprocs}
+Arguments = \"-c 'exec {cmd}'\"
+Remote_Initialdir = {homedir}
+Output = {homedir}/.jupyterhub.condor.out
+Error = {homedir}/.jupyterhub.condor.err
+ShouldTransferFiles = False
+GetEnv = True
+{options}
+Queue
+""",
+        config=True)
+
+    # outputs job id string
+    batch_submit_cmd = Unicode('sudo -E -u {username} condor_submit', config=True)
+    # outputs job data XML string
+    batch_query_cmd = Unicode('condor_q {job_id} -format "%s, " JobStatus -format "%s" RemoteHost -format "\n" True', config=True)
+    batch_cancel_cmd = Unicode('sudo -E -u {username} condor_rm {job_id}', config=True)
+    # job status: 1 = pending, 2 = running
+    state_pending_re = Unicode(r'^1,', config=True)
+    state_running_re = Unicode(r'^2,', config=True)
+    state_exechost_re = Unicode(r'^\w*, .*@([^ ]*)', config=True)
+
+    def parse_job_id(self, output):
+        match = re.search(r'.*submitted to cluster ([0-9]+)', output)
+        if match:
+            return match.groups()[0]
+
+        error_msg = "CondorSpawner unable to parse jobID from text: " + output
+        self.log.error(error_msg)
+        raise Exception(error_msg)
+
 # vim: set ai expandtab softtabstop=4:
