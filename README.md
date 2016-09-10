@@ -1,11 +1,14 @@
-#batchspawner for Jupyterhub [![Build Status](https://travis-ci.org/jupyterhub/batchspawner.svg?branch=master)](https://travis-ci.org/jupyterhub/batchspawner)
+# batchspawner for Jupyterhub
+
+[![Build Status](https://travis-ci.org/jupyterhub/batchspawner.svg?branch=master)](https://travis-ci.org/jupyterhub/batchspawner)
+
 This is a custom spawner for Jupyterhub that is designed for installations on clusters using batch scheduling software.
 
 This began as a generalization of [mkgilbert's batchspawner](https://github.com/mkgilbert/slurmspawner) which in turn was inspired by [Andrea Zonca's blog post](http://zonca.github.io/2015/04/jupyterhub-hpc.html 'Run jupyterhub on a Supercomputer') where he explains his implementation for a spawner that uses SSH and Torque. His github repo is found [here](http://www.github.com/zonca/remotespawner 'RemoteSpawner').
 
 This package also includes WrapSpawner and ProfilesSpawner, which provide mechanisms for runtime configuration of spawners.  The inspiration for their development was to allow users to select from a range of pre-defined batch job profiles, but their operation is completely generic.
 
-##Installation
+## Installation
 1. from root directory of this repo (where setup.py is), run `pip install -e .`
 
    If you don't actually need an editable version, you can simply run 
@@ -19,9 +22,9 @@ This package also includes WrapSpawner and ProfilesSpawner, which provide mechan
    ```
 3. Depending on the spawner, additional configuration will likely be needed.
 
-##Batch Spawners
+## Batch Spawners
 
-###Overview
+### Overview
 
 This file contains an abstraction layer for batch job queueing systems (`BatchSpawnerBase`), and implements
 Jupyterhub spawners for Torque, SLURM, SGE, HTCondor and eventually others.
@@ -39,7 +42,7 @@ Common attributes of batch submission / resource manager environments will inclu
   * a generic concept of job-ID and ID-based job state tracking
   * overrideable hooks for subclasses to plug in logic at numerous points
 
-###Example
+### Example
 
 Every effort has been made to accomodate highly diverse systems through configuration 
 only. This example consists of the (lightly edited) configuration used by the author 
@@ -79,9 +82,9 @@ to run Jupyter notebooks on an academic supercomputer cluster.
    c.TorqueSpawner.state_exechost_exp = r'int-\1.mesabi.xyz.edu'
    ```
 
-##Wrapper and Profile Spawners
+## Wrapper and Profile Spawners
 
-###Overview
+### Overview
 
 `WrapSpawner` provides a mechanism to wrap the interface of a Spawner such that
 the Spawner class to use for single-user servers can be chosen dynamically.
@@ -97,7 +100,7 @@ configuration of Spawner classes while permitting:
    * administrator control of allowed configuration changes
    * runtime choice of which Spawner backend to launch
 
-###Example
+### Example
 
 The following is based on the author's configuration (at the same site as the example above)
 showing how to give users access to multiple job configurations on the batch scheduled
