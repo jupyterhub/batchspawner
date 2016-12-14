@@ -396,20 +396,27 @@ class TorqueSpawner(BatchSpawnerRegexStates):
     state_exechost_re = Unicode(r'<exec_host>((?:[\w_-]+\.?)+)/\d+', config=True)
 
 class UserEnvMixin:
-    """Mixin class that computes values for USER and HOME in the environment passed to
+    """Mixin class that computes values for USER, SHELL and HOME in the environment passed to
     the job submission subprocess in case the batch system needs these for the batch script."""
 
     def user_env(self, env):
         """get user environment"""
         env['USER'] = self.user.name
-        env['HOME'] = pwd.getpwnam(self.user.name).pw_dir
+        home = pwd.getpwnam(self.user.name).pw_dir
+        shell = pwd.getpwnam(self.user.name).pw_shell
+        if home:
+            env['HOME'] = home
+        if shell:
+            env['SHELL'] = shell
         return env
 
-    def _env_default(self):
-        env = super()._env_default()
-        return self.user_env(env)
+    def get_env(self):
+        """Add user environment variables"""
+        env = super().get_env()
+        env = self.user_env(env)
+        return env
 
-class SlurmSpawner(BatchSpawnerRegexStates,UserEnvMixin):
+class SlurmSpawner(UserEnvMixin,BatchSpawnerRegexStates):
     """A Spawner that just uses Popen to start local processes."""
 
     # all these req_foo traits will be available as substvars for templated strings
@@ -504,7 +511,7 @@ class GridengineSpawner(BatchSpawnerBase):
         self.log.error("Spawner unable to match host addr in job {0} with status {1}".format(self.job_id, self.job_status))
         return
 
-class CondorSpawner(BatchSpawnerRegexStates):
+class CondorSpawner(UserEnvMixin,BatchSpawnerRegexStates):
     batch_script = Unicode("""
 Executable = /bin/sh
 RequestMemory = {memory}
