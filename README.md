@@ -11,11 +11,11 @@ This package also includes WrapSpawner and ProfilesSpawner, which provide mechan
 ## Installation
 1. from root directory of this repo (where setup.py is), run `pip install -e .`
 
-   If you don't actually need an editable version, you can simply run 
+   If you don't actually need an editable version, you can simply run
       `pip install https://github.com/mbmilligan/batchspawner`
 
 2. add lines in jupyterhub_config.py for the spawner you intend to use, e.g.
-   
+
    ```python
       c = get_config()
       c.JupyterHub.spawner_class = 'batchspawner.TorqueSpawner'
@@ -44,15 +44,15 @@ Common attributes of batch submission / resource manager environments will inclu
 
 ### Example
 
-Every effort has been made to accomodate highly diverse systems through configuration 
-only. This example consists of the (lightly edited) configuration used by the author 
+Every effort has been made to accomodate highly diverse systems through configuration
+only. This example consists of the (lightly edited) configuration used by the author
 to run Jupyter notebooks on an academic supercomputer cluster.
 
    ```python
    # Select the Torque backend and increase the timeout since batch jobs may take time to start
    c.JupyterHub.spawner_class = 'batchspawner.TorqueSpawner'
    c.Spawner.http_timeout = 120
-   
+
    #------------------------------------------------------------------------------
    # BatchSpawnerBase configuration
    #    These are simply setting parameters used in the job script template below
@@ -82,23 +82,17 @@ to run Jupyter notebooks on an academic supercomputer cluster.
    c.TorqueSpawner.state_exechost_exp = r'int-\1.mesabi.xyz.edu'
    ```
 
-## Wrapper and Profile Spawners
+## Provide different configurations of BatchSpawner
 
 ### Overview
 
-`WrapSpawner` provides a mechanism to wrap the interface of a Spawner such that
-the Spawner class to use for single-user servers can be chosen dynamically.
-Subclasses may modify the class or properties of the child Spawner at any point
-before start() is called (e.g. from Authenticator pre_spawn hooks or options form 
-processing) and that state will be preserved on restart. The start/stop/poll
-methods are not real coroutines, but simply pass through the Futures returned
-by the wrapped Spawner class.
+`ProfilesSpawner`, available as part of the [`wrapspawner`](https://github.com/jupyterhub/wrapspawner)
+package, allows the Jupyterhub administrator to define a set of different spawning configurations,
+both different spawners and different configurations of the same spawner.
+The user is then presented a dropdown menu for choosing the most suitable configuration for their needs.
 
-`ProfilesSpawner` leverages the `Spawner` options form feature to allow user-driven
-configuration of Spawner classes while permitting:
-   * configuration of Spawner classes that don't natively implement options_form
-   * administrator control of allowed configuration changes
-   * runtime choice of which Spawner backend to launch
+This method provides an easy and safe way to provide different configurations of `BatchSpawner` to the
+users, see an example below.
 
 ### Example
 
@@ -108,7 +102,7 @@ clusters, as well as an option to run a local notebook directly on the jupyterhu
 
    ```python
    # Same initial setup as the previous example
-   c.JupyterHub.spawner_class = 'batchspawner.ProfilesSpawner'
+   c.JupyterHub.spawner_class = 'wrapspawner.ProfilesSpawner'
    c.Spawner.http_timeout = 120
    #------------------------------------------------------------------------------
    # BatchSpawnerBase configuration
@@ -124,7 +118,7 @@ clusters, as well as an option to run a local notebook directly on the jupyterhu
    #   List(Tuple( Unicode, Unicode, Type(Spawner), Dict ))
    # corresponding to profile display name, unique key, Spawner class,
    # dictionary of spawner config options.
-   # 
+   #
    # The first three values will be exposed in the input_template as {display},
    # {key}, and {type}
    #
