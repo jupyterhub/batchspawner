@@ -149,11 +149,14 @@ class BatchSpawnerBase(Spawner):
         "Parse output of submit command to get job id."
         return output
 
+    def cmd_formatted_for_batch(self):
+        return ' '.join(self.cmd + self.get_args())
+
     @gen.coroutine
     def submit_batch_script(self):
         subvars = self.get_req_subvars()
         cmd = self.batch_submit_cmd.format(**subvars)
-        subvars['cmd'] = ' '.join(self.cmd + self.get_args())
+        subvars['cmd'] = self.cmd_formatted_for_batch()
         if hasattr(self, 'user_options'):
             subvars['user_options'] = self.user_options
         script = self.batch_script.format(**subvars)
@@ -545,5 +548,8 @@ Queue
         error_msg = "CondorSpawner unable to parse jobID from text: " + output
         self.log.error(error_msg)
         raise Exception(error_msg)
+
+    def cmd_formatted_for_batch(self):
+        return super(CondorSpawner,self).cmd_formatted_for_batch().replace('"','""').replace("'","''")
 
 # vim: set ai expandtab softtabstop=4:
