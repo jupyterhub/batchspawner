@@ -398,6 +398,16 @@ class TorqueSpawner(BatchSpawnerRegexStates):
     state_running_re = Unicode(r'<job_state>R</job_state>', config=True)
     state_exechost_re = Unicode(r'<exec_host>((?:[\w_-]+\.?)+)/\d+', config=True)
 
+class MoabSpawner(TorqueSpawner):
+    # outputs job id string
+    batch_submit_cmd = Unicode('sudo -E -u {username} msub', config=True)
+    # outputs job data XML string
+    batch_query_cmd = Unicode('sudo -E -u {username} mdiag -j {job_id} --xml', config=True)
+    batch_cancel_cmd = Unicode('sudo -E -u {username} mjobctl -c {job_id}', config=True)
+    state_pending_re = Unicode(r'State="Idle"', config=True)
+    state_running_re = Unicode(r'State="Running"', config=True)
+    state_exechost_re = Unicode(r'AllocNodeList="([^\r\n\t\f :"]*)', config=True)
+
 class UserEnvMixin:
     """Mixin class that computes values for USER, SHELL and HOME in the environment passed to
     the job submission subprocess in case the batch system needs these for the batch script."""
