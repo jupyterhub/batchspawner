@@ -29,7 +29,7 @@ from tornado.iostream import StreamClosedError
 
 from jupyterhub.spawner import Spawner
 from traitlets import (
-    Instance, Integer, Unicode, Float
+    Instance, Integer, Unicode, Float, Dict
 )
 
 from jupyterhub.utils import random_port
@@ -477,6 +477,18 @@ which jupyterhub-singleuser
             self.log.error("SlurmSpawner unable to parse job ID from text: " + output)
             raise e
         return id
+
+class MultiSlurmSpawner(SlurmSpawner):
+    '''When slurm has been compiled with --enable-multiple-slurmd, the
+       administrator sets the name of the slurmd instance via the slurmd -N
+       option. This node name is usually different from the hostname and may
+       not be resolvable by JupyterHub. Here we enable the administrator to
+       map the node names onto the real hostnames via a traitlet.'''
+    daemon_resolver = Dict({}, config=True, help="Map node names to hostnames")
+
+    def state_gethost(self):
+        host = SlurmSpawner.state_gethost(self)
+        return self.daemon_resolver.get(host, host)
 
 class GridengineSpawner(BatchSpawnerBase):
     batch_script = Unicode("""#!/bin/bash
