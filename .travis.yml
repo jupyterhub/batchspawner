@@ -13,6 +13,8 @@ matrix:
     include:
     - python: 3.5
       env: JHUB_VER=master
+    allow_failures:
+      - env: JHUB_VER=master
 
 before_install:
     - npm install -g configurable-http-proxy
