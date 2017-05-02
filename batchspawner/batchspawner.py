@@ -297,6 +297,8 @@ class BatchSpawnerBase(Spawner):
                         self.job_id, self.user.server.ip, self.user.server.port)
             )
 
+        return self.user.server.ip, self.user.server.port
+
     @gen.coroutine
     def stop(self, now=False):
         """Stop the singleuser server job.
