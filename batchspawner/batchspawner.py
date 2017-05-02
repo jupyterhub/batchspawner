@@ -574,4 +574,56 @@ Queue
     def cmd_formatted_for_batch(self):
         return super(CondorSpawner,self).cmd_formatted_for_batch().replace('"','""').replace("'","''")
 
+class LsfSpawner(BatchSpawnerBase):
+    '''A Spawner that uses IBM's Platform Load Sharing Facility (LSF) to launch notebooks.'''    
+    
+    batch_script = Unicode('''#!/bin/sh
+    #BSUB -R "select[type==any]"    # Allow spawning on non-uniform hardware
+    #BSUB -R "span[hosts=1]"        # Only spawn job on one server
+    #BSUB -q {queue}
+    #BSUB -J spawner-jupyterhub
+    #BSUB -o {homedir}/.jupyterhub.lsf.out
+    #BSUB -e {homedir}/.jupyterhub.lsf.err
+    
+    {cmd}    
+    ''', config=True)
+
+
+    batch_submit_cmd = Unicode('sudo -E -u {username} bsub', config=True)
+    batch_query_cmd = Unicode('sudo -E -u {username} bjobs -a -noheader -o "STAT EXEC_HOST" {job_id}', config=True)
+    batch_cancel_cmd = Unicode('sudo -E -u {username} bkill {job_id}', config=True)
+
+    def get_env(self):
+        env = super().get_env()
+
+        # LSF relies on environment variables to launch local jobs.  Ensure that these values are included
+        # in the environment used to run the spawner.
+        for key in ['LSF_ENVDIR','LSF_SERVERDIR','LSF_FULL_VERSION','LSF_LIBDIR','LSF_BINDIR']:
+            if key in os.environ and key not in env:
+                env[key] = os.environ[key]
+        return env
+
+    def parse_job_id(self, output):
+        # Assumes output in the following form:
+        # "Job <1815> is submitted to default queue <normal>."
+        return output.split(' ')[1].strip('<>')
+
+    def state_ispending(self):
+        # Parse results of batch_query_cmd
+        # Output determined by results of self.batch_query_cmd
+        if self.job_status:
+            return self.job_status.split(' ')[0].upper() in {'PEND', 'PUSP'}
+            
+    def state_isrunning(self):
+        if self.job_status:
+            return self.job_status.split(' ')[0].upper() == 'RUN'
+
+
+    def state_gethost(self):
+        if self.job_status:
+            return self.job_status.split(' ')[1].strip()
+
+        self.log.error("Spawner unable to match host addr in job {0} with status {1}".format(self.job_id, self.job_status))
+        return
+
 # vim: set ai expandtab softtabstop=4:
