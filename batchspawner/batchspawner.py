@@ -29,7 +29,7 @@ from tornado.iostream import StreamClosedError
 
 from jupyterhub.spawner import Spawner
 from traitlets import (
-    Instance, Integer, Unicode, Float, Dict
+    Instance, Integer, Unicode, Float, Dict, default
 )
 
 from jupyterhub.utils import random_port
@@ -109,15 +109,18 @@ class BatchSpawnerBase(Spawner):
         ).tag(config=True)
 
     req_username = Unicode()
+    @default('req_username')
     def _req_username_default(self):
         return self.user.name
 
     # Useful IF getpwnam on submit host returns correct info for exec host
     req_homedir = Unicode()
+    @default('req_homedir')
     def _req_homedir_default(self):
         return pwd.getpwnam(self.user.name).pw_dir
 
     req_keepvars = Unicode()
+    @default('req_keepvars')
     def _req_keepvars_default(self):
         return ','.join(self.get_env().keys())
 
