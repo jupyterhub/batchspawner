@@ -4,7 +4,6 @@ from unittest import mock
 from .. import BatchSpawnerRegexStates
 from traitlets import Unicode
 import time
-import sys
 import pytest
 from jupyterhub import orm
 
@@ -43,7 +42,7 @@ def test_spawner_start_stop_poll(db, io_loop):
     io_loop.run_sync(spawner.start, timeout=5)
     assert spawner.user.server.ip == 'userhost123'
     assert spawner.job_id == '12345'
-    
+
     status = io_loop.run_sync(spawner.poll, timeout=5)
     assert status is None
     spawner.batch_query_cmd = 'echo NOPE'
