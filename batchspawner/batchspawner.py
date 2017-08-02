@@ -18,6 +18,7 @@ Common attributes of batch submission / resource manager environments will inclu
 import signal
 import pwd
 import os
+import logging
 from subprocess import Popen, call
 import subprocess
 
@@ -37,7 +38,7 @@ from jupyterhub.spawner import set_user_setuid
 
 @gen.coroutine
 def run_command(cmd, input=None, env=None):
-    proc = Subprocess(cmd, shell=True, env=env, stdin=Subprocess.STREAM, stdout=Subprocess.STREAM)
+    proc = Subprocess(cmd, shell=True, env=env, stdin=Subprocess.STREAM, stdout=Subprocess.STREAM,stderr=Subprocess.STREAM)
     inbytes = None
     if input:
         inbytes = input.encode()
@@ -48,7 +49,12 @@ def run_command(cmd, input=None, env=None):
             pass
     proc.stdin.close()
     out = yield proc.stdout.read_until_close()
+    eout = yield proc.stderr.read_until_close()
     proc.stdout.close()
+    proc.stderr.close()
+    eout = eout.decode().strip()
+    if eout != '':
+        logging.warn(eout)
     err = yield proc.wait_for_exit()
     if err != 0:
         return err # exit error?
