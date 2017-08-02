@@ -18,7 +18,6 @@ Common attributes of batch submission / resource manager environments will inclu
 import signal
 import pwd
 import os
-import logging
 from subprocess import Popen, call
 import subprocess
 
@@ -56,8 +55,8 @@ def run_command(cmd, input=None, env=None):
     try:
         err = yield proc.wait_for_exit()
     except subprocess.CalledProcessError:
-        logging.error("Subprocess returned exitcode %s" % proc.returncode)
-        logging.error(eout)
+        self.log.error("Subprocess returned exitcode %s" % proc.returncode)
+        self.log.error(eout)
         raise RuntimeError(eout)
     if err != 0:
         return err # exit error?
