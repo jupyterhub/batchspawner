@@ -54,7 +54,7 @@ def run_command(cmd, input=None, env=None):
     proc.stderr.close()
     eout = eout.decode().strip()
     if eout != '':
-        logging.warn(eout)
+        logging.error(eout)
     err = yield proc.wait_for_exit()
     if err != 0:
         return err # exit error?
