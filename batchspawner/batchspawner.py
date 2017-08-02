@@ -53,9 +53,12 @@ def run_command(cmd, input=None, env=None):
     proc.stdout.close()
     proc.stderr.close()
     eout = eout.decode().strip()
-    if eout != '':
+    try:
+        err = yield proc.wait_for_exit()
+    except subprocess.CalledProcessError:
+        logging.error("Subprocess returned exitcode %s" % proc.returncode)
         logging.error(eout)
-    err = yield proc.wait_for_exit()
+        raise RuntimeError(eout)
     if err != 0:
         return err # exit error?
     else:
