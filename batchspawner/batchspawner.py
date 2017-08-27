@@ -15,11 +15,8 @@ Common attributes of batch submission / resource manager environments will inclu
   * remote execution via submission of templated scripts
   * job names instead of PIDs
 """
-import signal
 import pwd
 import os
-from subprocess import Popen, call
-import subprocess
 
 import xml.etree.ElementTree as ET
 
@@ -29,7 +26,7 @@ from tornado.iostream import StreamClosedError
 
 from jupyterhub.spawner import Spawner
 from traitlets import (
-    Instance, Integer, Unicode, Float, Dict, default
+    Integer, Unicode, Float, Dict, default
 )
 
 from jupyterhub.utils import random_port
@@ -277,7 +274,7 @@ class BatchSpawnerBase(Spawner):
         job = yield self.submit_batch_script()
 
         # We are called with a timeout, and if the timeout expires this function will
-        # be interrupted at the next yield, and self.stop() will be called. 
+        # be interrupted at the next yield, and self.stop() will be called.
         # So this function should not return unless successful, and if unsuccessful
         # should either raise and Exception or loop forever.
         assert len(self.job_id) > 0
@@ -576,8 +573,8 @@ Queue
         return super(CondorSpawner,self).cmd_formatted_for_batch().replace('"','""').replace("'","''")
 
 class LsfSpawner(BatchSpawnerBase):
-    '''A Spawner that uses IBM's Platform Load Sharing Facility (LSF) to launch notebooks.'''    
-    
+    '''A Spawner that uses IBM's Platform Load Sharing Facility (LSF) to launch notebooks.'''
+
     batch_script = Unicode('''#!/bin/sh
     #BSUB -R "select[type==any]"    # Allow spawning on non-uniform hardware
     #BSUB -R "span[hosts=1]"        # Only spawn job on one server
@@ -585,8 +582,8 @@ class LsfSpawner(BatchSpawnerBase):
     #BSUB -J spawner-jupyterhub
     #BSUB -o {homedir}/.jupyterhub.lsf.out
     #BSUB -e {homedir}/.jupyterhub.lsf.err
-    
-    {cmd}    
+
+    {cmd}
     ''').tag(config=True)
 
 
@@ -614,7 +611,7 @@ class LsfSpawner(BatchSpawnerBase):
         # Output determined by results of self.batch_query_cmd
         if self.job_status:
             return self.job_status.split(' ')[0].upper() in {'PEND', 'PUSP'}
-            
+
     def state_isrunning(self):
         if self.job_status:
             return self.job_status.split(' ')[0].upper() == 'RUN'
