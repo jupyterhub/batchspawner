@@ -494,6 +494,8 @@ class GridengineSpawner(BatchSpawnerBase):
     batch_script = Unicode("""#!/bin/bash
 #$ -j yes
 #$ -N spawner-jupyterhub
+#$ -o {homedir}/.jupyterhub.sge.out
+#$ -e {homedir}/.jupyterhub.sge.err
 #$ -v {keepvars}
 #$ {options}
 
