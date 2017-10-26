@@ -31,7 +31,7 @@ from traitlets import (
 
 from jupyterhub.utils import random_port
 from jupyterhub.spawner import set_user_setuid
-import jupyterhub.version_info
+import jupyterhub
 
 @gen.coroutine
 def run_command(cmd, input=None, env=None):
