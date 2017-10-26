@@ -2,6 +2,7 @@
 language: python
 sudo: false
 python:
+    - 3.6
     - 3.5
     - 3.4
     - 3.3
@@ -9,9 +10,10 @@ env:
     - JHUB_VER=0.5.0
     - JHUB_VER=0.6.1
     - JHUB_VER=0.7.2
+    - JHUB_VER=0.8.0
 matrix:
     include:
-    - python: 3.5
+    - python: 3.6
       env: JHUB_VER=master
     allow_failures:
       - env: JHUB_VER=master
