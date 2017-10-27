@@ -5,7 +5,12 @@ from .. import BatchSpawnerRegexStates
 from traitlets import Unicode
 import time
 import pytest
-from jupyterhub import orm
+from jupyterhub import orm, version_info
+
+try:
+    from jupyterhub.objects import Hub
+except:
+    pass
 
 class BatchDummy(BatchSpawnerRegexStates):
     batch_submit_cmd = Unicode('cat > /dev/null; echo 12345')
@@ -19,7 +24,11 @@ class BatchDummy(BatchSpawnerRegexStates):
 def new_spawner(db, **kwargs):
     kwargs.setdefault('cmd', ['singleuser_command'])
     kwargs.setdefault('user', db.query(orm.User).first())
-    kwargs.setdefault('hub', db.query(orm.Hub).first())
+    if version_info[1] <= 7:
+        hub = db.query(orm.Hub).first()
+    else:
+        hub = Hub()
+    kwargs.setdefault('hub', hub)
     kwargs.setdefault('INTERRUPT_TIMEOUT', 1)
     kwargs.setdefault('TERM_TIMEOUT', 1)
     kwargs.setdefault('KILL_TIMEOUT', 1)
