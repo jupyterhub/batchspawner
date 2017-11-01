@@ -9,12 +9,16 @@ from jupyterhub import orm, version_info
 
 try:
     from jupyterhub.objects import Hub
+    from jupyterhub.user import User
 except:
     pass
 
+testhost = "userhost123"
+testjob  = "12345"
+
 class BatchDummy(BatchSpawnerRegexStates):
-    batch_submit_cmd = Unicode('cat > /dev/null; echo 12345')
-    batch_query_cmd = Unicode('echo RUN userhost123')
+    batch_submit_cmd = Unicode('cat > /dev/null; echo '+testjob)
+    batch_query_cmd = Unicode('echo RUN '+testhost)
     batch_cancel_cmd = Unicode('echo STOP')
     batch_script = Unicode('{cmd}')
     state_pending_re = Unicode('PEND')
@@ -23,22 +27,34 @@ class BatchDummy(BatchSpawnerRegexStates):
 
 def new_spawner(db, **kwargs):
     kwargs.setdefault('cmd', ['singleuser_command'])
-    kwargs.setdefault('user', db.query(orm.User).first())
-    if version_info[1] <= 7:
+    user = db.query(orm.User).first()
+    if version_info < (0,8):
         hub = db.query(orm.Hub).first()
     else:
         hub = Hub()
+        user = User(user, {})
     kwargs.setdefault('hub', hub)
+    kwargs.setdefault('user', user)
     kwargs.setdefault('INTERRUPT_TIMEOUT', 1)
     kwargs.setdefault('TERM_TIMEOUT', 1)
     kwargs.setdefault('KILL_TIMEOUT', 1)
     kwargs.setdefault('poll_interval', 1)
-    return BatchDummy(db=db, **kwargs)
+    if version_info < (0,8):
+        return BatchDummy(db=db, **kwargs)
+    else:
+        print("JupyterHub >=0.8 detected, using new spawner creation")
+        return user._new_spawner('', spawner_class=BatchDummy, **kwargs)
 
 def test_stress_submit(db, io_loop):
     for i in range(200):
         time.sleep(0.01)
         test_spawner_start_stop_poll(db, io_loop)
+
+def check_ip(spawner, value):
+    if version_info < (0,7):
+        assert spawner.user.server.ip == value
+    else:
+        assert spawner.ip == value
 
 def test_spawner_start_stop_poll(db, io_loop):
     spawner = new_spawner(db=db)
@@ -49,8 +65,8 @@ def test_spawner_start_stop_poll(db, io_loop):
     assert spawner.get_state() == {}
 
     io_loop.run_sync(spawner.start, timeout=5)
-    assert spawner.user.server.ip == 'userhost123'
-    assert spawner.job_id == '12345'
+    check_ip(spawner, testhost)
+    assert spawner.job_id == testjob
 
     status = io_loop.run_sync(spawner.poll, timeout=5)
     assert status is None
@@ -65,17 +81,17 @@ def test_spawner_state_reload(db, io_loop):
     assert spawner.get_state() == {}
 
     io_loop.run_sync(spawner.start, timeout=30)
-    assert spawner.user.server.ip == 'userhost123'
-    assert spawner.job_id == '12345'
+    check_ip(spawner, testhost)
+    assert spawner.job_id == testjob
 
     state = spawner.get_state()
-    assert state == dict(job_id='12345', job_status='RUN userhost123')
+    assert state == dict(job_id=testjob, job_status='RUN '+testhost)
     spawner = new_spawner(db=db)
     spawner.clear_state()
     assert spawner.get_state() == {}
     spawner.load_state(state)
-    assert spawner.user.server.ip == 'userhost123'
-    assert spawner.job_id == '12345'
+    check_ip(spawner, testhost)
+    assert spawner.job_id == testjob
 
 def test_submit_failure(db, io_loop):
     spawner = new_spawner(db=db)
