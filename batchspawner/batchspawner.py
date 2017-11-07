@@ -434,6 +434,10 @@ class SlurmSpawner(UserEnvMixin,BatchSpawnerRegexStates):
     """A Spawner that just uses Popen to start local processes."""
 
     # all these req_foo traits will be available as substvars for templated strings
+    req_cluster = Unicode('', \
+        help="Cluster name to submit job to resource manager"
+        ).tag(config=True)
+
     req_partition = Unicode('', \
         help="Partition name to submit job to resource manager"
         ).tag(config=True)
@@ -471,7 +475,7 @@ which jupyterhub-singleuser
     def parse_job_id(self, output):
         # make sure jobid is really a number
         try:
-            id = output.split(' ')[-1]
+            id = output.split(' ')[3]
             int(id)
         except Exception as e:
             self.log.error("SlurmSpawner unable to parse job ID from text: " + output)
