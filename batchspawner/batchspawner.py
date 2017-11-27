@@ -462,7 +462,7 @@ which jupyterhub-singleuser
 {cmd}
 """).tag(config=True)
     # outputs line like "Submitted batch job 209"
-    batch_submit_cmd = Unicode('sudo -E -u {username} sbatch').tag(config=True)
+    batch_submit_cmd = Unicode('sudo -E -u {username} sbatch --parsable').tag(config=True)
     # outputs status and exec node like "RUNNING hostname"
     batch_query_cmd = Unicode('sudo -E -u {username} squeue -h -j {job_id} -o "%T %B"').tag(config=True) #
     batch_cancel_cmd = Unicode('sudo -E -u {username} scancel {job_id}').tag(config=True)
@@ -475,7 +475,7 @@ which jupyterhub-singleuser
     def parse_job_id(self, output):
         # make sure jobid is really a number
         try:
-            id = output.split(' ')[3]
+            id = output.split(';')[0]
             int(id)
         except Exception as e:
             self.log.error("SlurmSpawner unable to parse job ID from text: " + output)
