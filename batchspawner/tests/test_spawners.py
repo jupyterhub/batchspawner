@@ -90,7 +90,7 @@ def test_spawner_state_reload(db, io_loop):
     spawner.clear_state()
     assert spawner.get_state() == {}
     spawner.load_state(state)
-    if version_info < (0,8):
+    if version_info < (0,7):
         check_ip(spawner, testhost)
     else:
         check_ip(spawner, '0.0.0.0')
