@@ -31,6 +31,7 @@ from traitlets import (
 
 from jupyterhub.utils import random_port
 from jupyterhub.spawner import set_user_setuid
+import jupyterhub
 
 @gen.coroutine
 def run_command(cmd, input=None, env=None):
@@ -268,8 +269,12 @@ class BatchSpawnerBase(Spawner):
     @gen.coroutine
     def start(self):
         """Start the process"""
-        if not self.user.server.port:
-            self.user.server.port = random_port()
+        if self.user and self.user.server and self.user.server.port:
+            self.port = self.user.server.port
+            self.db.commit()
+        elif (jupyterhub.version_info < (0,7) and not self.user.server.port)  or \
+             (jupyterhub.version_info >= (0,7) and not self.port):
+            self.port = random_port()
             self.db.commit()
         job = yield self.submit_batch_script()
 
@@ -291,13 +296,17 @@ class BatchSpawnerBase(Spawner):
                 assert self.state_ispending()
             yield gen.sleep(self.startup_poll_interval)
 
-        self.user.server.ip = self.state_gethost()
+        self.ip = self.state_gethost()
+        if jupyterhub.version_info < (0,7):
+            # store on user for pre-jupyterhub-0.7:
+            self.user.server.port = self.port
+            self.user.server.ip = self.ip
         self.db.commit()
         self.log.info("Notebook server job {0} started at {1}:{2}".format(
-                        self.job_id, self.user.server.ip, self.user.server.port)
+                        self.job_id, self.ip, self.port)
             )
 
-        return self.user.server.ip, self.user.server.port
+        return self.ip, self.port
 
     @gen.coroutine
     def stop(self, now=False):
@@ -317,7 +326,7 @@ class BatchSpawnerBase(Spawner):
             yield gen.sleep(1.0)
         if self.job_id:
             self.log.warn("Notebook server job {0} at {1}:{2} possibly failed to terminate".format(
-                             self.job_id, self.user.server.ip, self.user.server.port)
+                             self.job_id, self.ip, self.port)
                 )
 
 import re
