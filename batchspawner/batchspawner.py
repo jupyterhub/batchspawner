@@ -464,7 +464,7 @@ which jupyterhub-singleuser
     # outputs line like "Submitted batch job 209"
     batch_submit_cmd = Unicode('sudo -E -u {username} sbatch --parsable').tag(config=True)
     # outputs status and exec node like "RUNNING hostname"
-    batch_query_cmd = Unicode('sudo -E -u {username} squeue -h -j {job_id} -o "%T %B"').tag(config=True) #
+    batch_query_cmd = Unicode("sudo -E -u {username} squeue -h -j {job_id} -o '%T %B'").tag(config=True) #
     batch_cancel_cmd = Unicode('sudo -E -u {username} scancel {job_id}').tag(config=True)
     # use long-form states: PENDING,  CONFIGURING = pending
     #  RUNNING,  COMPLETING = running
