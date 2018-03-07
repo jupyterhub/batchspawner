@@ -443,6 +443,10 @@ class SlurmSpawner(UserEnvMixin,BatchSpawnerRegexStates):
     """A Spawner that just uses Popen to start local processes."""
 
     # all these req_foo traits will be available as substvars for templated strings
+    req_cluster = Unicode('', \
+        help="Cluster name to submit job to resource manager"
+        ).tag(config=True)
+
     req_partition = Unicode('', \
         help="Partition name to submit job to resource manager"
         ).tag(config=True)
@@ -467,9 +471,9 @@ which jupyterhub-singleuser
 {cmd}
 """).tag(config=True)
     # outputs line like "Submitted batch job 209"
-    batch_submit_cmd = Unicode('sudo -E -u {username} sbatch').tag(config=True)
+    batch_submit_cmd = Unicode('sudo -E -u {username} sbatch --parsable').tag(config=True)
     # outputs status and exec node like "RUNNING hostname"
-    batch_query_cmd = Unicode('sudo -E -u {username} squeue -h -j {job_id} -o "%T %B"').tag(config=True) #
+    batch_query_cmd = Unicode("sudo -E -u {username} squeue -h -j {job_id} -o '%T %B'").tag(config=True) #
     batch_cancel_cmd = Unicode('sudo -E -u {username} scancel {job_id}').tag(config=True)
     # use long-form states: PENDING,  CONFIGURING = pending
     #  RUNNING,  COMPLETING = running
@@ -480,7 +484,7 @@ which jupyterhub-singleuser
     def parse_job_id(self, output):
         # make sure jobid is really a number
         try:
-            id = output.split(' ')[-1]
+            id = output.split(';')[0]
             int(id)
         except Exception as e:
             self.log.error("SlurmSpawner unable to parse job ID from text: " + output)
