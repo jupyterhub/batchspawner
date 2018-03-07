@@ -159,7 +159,7 @@ class BatchSpawnerBase(Spawner):
         cmd = self.batch_submit_cmd.format(**subvars)
         subvars['cmd'] = self.cmd_formatted_for_batch()
         if hasattr(self, 'user_options'):
-            subvars['user_options'] = self.user_options
+            subvars.update(self.user_options)
         script = self.batch_script.format(**subvars)
         self.log.info('Spawner submitting job using ' + cmd)
         self.log.info('Spawner submitted script:\n' + script)
