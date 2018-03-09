@@ -35,7 +35,7 @@ import jupyterhub
 
 @gen.coroutine
 def run_command(cmd, input=None, env=None):
-    proc = Subprocess(cmd, shell=True, env=env, stdin=Subprocess.STREAM, stdout=Subprocess.STREAM)
+    proc = Subprocess(cmd, shell=True, env=env, stdin=Subprocess.STREAM, stdout=Subprocess.STREAM,stderr=Subprocess.STREAM)
     inbytes = None
     if input:
         inbytes = input.encode()
@@ -46,8 +46,16 @@ def run_command(cmd, input=None, env=None):
             pass
     proc.stdin.close()
     out = yield proc.stdout.read_until_close()
+    eout = yield proc.stderr.read_until_close()
     proc.stdout.close()
-    err = yield proc.wait_for_exit()
+    proc.stderr.close()
+    eout = eout.decode().strip()
+    try:
+        err = yield proc.wait_for_exit()
+    except subprocess.CalledProcessError:
+        self.log.error("Subprocess returned exitcode %s" % proc.returncode)
+        self.log.error(eout)
+        raise RuntimeError(eout)
     if err != 0:
         return err # exit error?
     else:
