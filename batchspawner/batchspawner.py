@@ -98,6 +98,10 @@ class BatchSpawnerBase(Spawner):
         help="Number of processors to request from resource manager"
         ).tag(config=True)
 
+    req_ngpus = Unicode('', \
+        help="Number of GPUs to request from resource manager"
+        ).tag(config=True)
+
     req_runtime = Unicode('', \
         help="Length of time for submitted job to run"
         ).tag(config=True)
