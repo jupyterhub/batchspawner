@@ -22,6 +22,7 @@ import xml.etree.ElementTree as ET
 
 from tornado import gen
 from tornado.process import Subprocess
+from subprocess import CalledProcessError
 from tornado.iostream import StreamClosedError
 
 from jupyterhub.spawner import Spawner
@@ -52,9 +53,9 @@ def run_command(cmd, input=None, env=None):
     eout = eout.decode().strip()
     try:
         err = yield proc.wait_for_exit()
-    except subprocess.CalledProcessError:
-        self.log.error("Subprocess returned exitcode %s" % proc.returncode)
-        self.log.error(eout)
+    except CalledProcessError:
+        #self.log.error("Subprocess returned exitcode %s" % proc.returncode)
+        #self.log.error(eout)
         raise RuntimeError(eout)
     if err != 0:
         return err # exit error?
