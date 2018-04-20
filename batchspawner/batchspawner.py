@@ -115,6 +115,14 @@ class BatchSpawnerBase(Spawner):
         help="Length of time for submitted job to run"
         ).tag(config=True)
 
+    req_partition = Unicode('', \
+        help="Partition name to submit job to resource manager"
+        ).tag(config=True)
+
+    req_account = Unicode('', \
+        help="Account name string to pass to the resource manager"
+        ).tag(config=True)
+
     req_options = Unicode('', \
         help="Other options to include into job submission script"
         ).tag(config=True)
@@ -458,10 +466,6 @@ class SlurmSpawner(UserEnvMixin,BatchSpawnerRegexStates):
     # all these req_foo traits will be available as substvars for templated strings
     req_cluster = Unicode('', \
         help="Cluster name to submit job to resource manager"
-        ).tag(config=True)
-
-    req_partition = Unicode('', \
-        help="Partition name to submit job to resource manager"
         ).tag(config=True)
 
     req_qos = Unicode('', \
