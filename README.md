@@ -27,7 +27,7 @@ This package formerly included WrapSpawner and ProfilesSpawner, which provide me
 ### Overview
 
 This file contains an abstraction layer for batch job queueing systems (`BatchSpawnerBase`), and implements
-Jupyterhub spawners for Torque, SLURM, SGE, HTCondor and eventually others.
+Jupyterhub spawners for Torque, Moab, SLURM, SGE, HTCondor, LSF, and eventually others.
 Common attributes of batch submission / resource manager environments will include notions of:
   * queue names, resource manager addresses
   * resource limits including runtime, number of processes, memory
@@ -135,3 +135,21 @@ clusters, as well as an option to run a local notebook directly on the jupyterhu
              req_runtime='8:00:00', req_memory='4gb', state_exechost_exp='')),
       ]
    ```
+
+
+## Recent changes / upgrading
+
+### v0.8 (compatible with JupyterHub 0.8.1/0.9dev)
+
+* Add jinja2 templating support for substitutions
+* SlurmSpawner: Remove `--uid` for (at least) Slurm 17.11 compatibility.  If you use sudo, this should not be necessary, but because this is security related you should check that user management is as you expect.  If for some reason you have removed the sudo, you *must* pay attention and fix things.
+* add `req_ngpus` base option
+* Fix up logging
+* Merge `user_options` with the template substitution vars instead of having it as a separate key
+* Update ip/port handling for JupyterHub 0.8
+* Improvements to `SlurmSpawner`, `GridengineSpawner`
+* Add `LICENSE` (BSD3) and `CONTRIBUTING.md`
+* Add `LsfSpawner` for IBM LFS
+* Add `MultiSlurmSpawner`
+* (first entry, changes older than 1 year not listed here)
+
