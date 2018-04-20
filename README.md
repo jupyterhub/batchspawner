@@ -142,7 +142,7 @@ clusters, as well as an option to run a local notebook directly on the jupyterhu
 ### v0.8 (compatible with JupyterHub 0.8.1/0.9dev)
 
 * Add jinja2 templating support for substitutions
-* SlurmSpawner: bugfix, remove `--uid` for (at least) Slurm 17.11 compatibility
+* SlurmSpawner: Remove `--uid` for (at least) Slurm 17.11 compatibility.  If you use sudo, this should not be necessary, but because this is security related you should check that user management is as you expect.  If for some reason you have removed the sudo, you *must* pay attention and fix things.
 * add `req_ngpus` base option
 * Fix up logging
 * Merge `user_options` with the template substitution vars instead of having it as a separate key
