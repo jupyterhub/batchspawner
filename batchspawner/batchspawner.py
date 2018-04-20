@@ -476,7 +476,6 @@ class SlurmSpawner(UserEnvMixin,BatchSpawnerRegexStates):
 #SBATCH --workdir={homedir}
 #SBATCH --mem={memory}
 #SBATCH --export={keepvars}
-#SBATCH --uid={username}
 #SBATCH --get-user-env=L
 #SBATCH {options}
 
