@@ -137,19 +137,26 @@ clusters, as well as an option to run a local notebook directly on the jupyterhu
    ```
 
 
-## Recent changes / upgrading
+## Changelog
 
-### v0.8 (compatible with JupyterHub 0.8.1/0.9dev)
+### v0.8 (compatible with JupyterHub 0.5.0 through 0.8.1/0.9dev)
 
-* Add jinja2 templating support for substitutions
-* SlurmSpawner: Remove `--uid` for (at least) Slurm 17.11 compatibility.  If you use sudo, this should not be necessary, but because this is security related you should check that user management is as you expect.  If for some reason you have removed the sudo, you *must* pay attention and fix things.
-* add `req_ngpus` base option
+* SlurmSpawner: Remove `--uid` for (at least) Slurm 17.11 compatibility.  If you use `sudo`, this should not be necessary, but because this is security related you should check that user management is as you expect.  If your configuration does not use `sudo` then you may need to add the `--uid` option in a custom `batch_script`.
+* add `req_ngpus` and `req_options` base options
 * Fix up logging
 * Merge `user_options` with the template substitution vars instead of having it as a separate key
 * Update ip/port handling for JupyterHub 0.8
-* Improvements to `SlurmSpawner`, `GridengineSpawner`
 * Add `LICENSE` (BSD3) and `CONTRIBUTING.md`
 * Add `LsfSpawner` for IBM LFS
 * Add `MultiSlurmSpawner`
-* (first entry, changes older than 1 year not listed here)
+* Add `MoabSpawner`
+* Add `condorSpawner`
+* Add `GridEngineSpawner`
+* SlurmSpawner: add `req_partition` and `req_qos` options
+* WrapSpawner and ProfilesSpawner, which provide mechanisms for runtime configuration of spawners, have been split out and moved to the [`wrapspawner`](https://github.com/jupyterhub/wrapspawner) package
+* Enable CI testing via Travis-CI
+
+### v0.3 (tag: jhub-0.3, compatible with JupyterHub 0.3.0)
+
+* initial release containing `TorqueSpawner` and `SlurmSpawner`
 
