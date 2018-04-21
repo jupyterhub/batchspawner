@@ -475,6 +475,7 @@ class SlurmSpawner(UserEnvMixin,BatchSpawnerRegexStates):
     batch_script = Unicode("""#!/bin/bash
 #SBATCH --partition={partition}
 #SBATCH --time={runtime}
+#SBATCH --ntasks={nprocs}
 #SBATCH --output={homedir}/jupyterhub_slurmspawner_%j.log
 #SBATCH --job-name=spawner-jupyterhub
 #SBATCH --workdir={homedir}
