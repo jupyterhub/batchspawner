@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/jupyterhub/batchspawner.svg?branch=master)](https://travis-ci.org/jupyterhub/batchspawner)
 
-This is a custom spawner for Jupyterhub that is designed for installations on clusters using batch scheduling software.
+This is a custom spawner for [Jupyterhub](https://jupyterhub.readthedocs.io/) that is designed for installations on clusters using batch scheduling software.
 
 This began as a generalization of [mkgilbert's batchspawner](https://github.com/mkgilbert/slurmspawner) which in turn was inspired by [Andrea Zonca's blog post](http://zonca.github.io/2015/04/jupyterhub-hpc.html 'Run jupyterhub on a Supercomputer') where he explains his implementation for a spawner that uses SSH and Torque. His github repo is found [here](http://www.github.com/zonca/remotespawner 'RemoteSpawner').
 
@@ -12,7 +12,7 @@ This package formerly included WrapSpawner and ProfilesSpawner, which provide me
 1. from root directory of this repo (where setup.py is), run `pip install -e .`
 
    If you don't actually need an editable version, you can simply run
-      `pip install git+https://github.com/jupyterhub/batchspawner`
+      `pip install batchspawner`
 
 2. add lines in jupyterhub_config.py for the spawner you intend to use, e.g.
 

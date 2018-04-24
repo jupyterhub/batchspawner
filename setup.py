@@ -13,7 +13,7 @@ from __future__ import print_function
 import os
 import sys
 
-from distutils.core import setup
+from setuptools import setup
 
 pjoin = os.path.join
 here = os.path.abspath(os.path.dirname(__file__))
@@ -23,18 +23,23 @@ version_ns = {}
 with open(pjoin(here, 'version.py')) as f:
     exec(f.read(), {}, version_ns)
 
+with open(pjoin(here, 'README.md'), encoding='utf-8') as f:
+    long_desc = f.read()
+
 setup_args = dict(
     name                = 'batchspawner',
     packages            = ['batchspawner'],
     version             = version_ns['__version__'],
     description         = """Batchspawner: A spawner for Jupyterhub to spawn notebooks using batch resource managers.""",
-    long_description    = "",
+    long_description    = long_desc,
+    long_description_content_type = 'text/markdown',
     author              = "Michael Milligan, Andrea Zonca, Mike Gilbert",
     author_email        = "milligan@umn.edu, m code@andreazonca.com, mike@nau.edu",
     url                 = "http://jupyter.org",
     license             = "BSD",
     platforms           = "Linux, Mac OS X",
-    keywords            = ['Interactive', 'Interpreter', 'Shell', 'Web'],
+    python_requires     = '~=3.3',
+    keywords            = ['Interactive', 'Interpreter', 'Shell', 'Web', 'Jupyter'],
     classifiers         = [
         'Intended Audience :: Developers',
         'Intended Audience :: System Administrators',
@@ -43,6 +48,12 @@ setup_args = dict(
         'Programming Language :: Python',
         'Programming Language :: Python :: 3',
     ],
+    project_urls        = {
+        'Bug Reports':      'https://github.com/jupyterhub/batchspawner/issues',
+        'Source':           'https://github.com/jupyterhub/batchspawner/',
+        'About Jupyterhub': 'http://jupyterhub.readthedocs.io/en/latest/',
+        'Jupyter Project':  'http://jupyter.org',
+    }
 )
 
 # setuptools requirements
