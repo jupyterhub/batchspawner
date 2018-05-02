@@ -155,6 +155,9 @@ class BatchSpawnerBase(Spawner):
     # Will get the raw output of the job status command unless overridden
     job_status = Unicode()
 
+    # Will get the address of the server as reported by job manager
+    current_ip = Unicode()
+
     # Prepare substitution variables for templates using req_xyz traits
     def get_req_subvars(self):
         reqlist = [ t for t in self.trait_names() if t.startswith('req_') ]
@@ -317,17 +320,17 @@ class BatchSpawnerBase(Spawner):
                 assert self.state_ispending()
             yield gen.sleep(self.startup_poll_interval)
 
-        self.ip = self.state_gethost()
+        self.current_ip = self.state_gethost()
         if jupyterhub.version_info < (0,7):
             # store on user for pre-jupyterhub-0.7:
             self.user.server.port = self.port
-            self.user.server.ip = self.ip
+            self.user.server.ip = self.current_ip
         self.db.commit()
         self.log.info("Notebook server job {0} started at {1}:{2}".format(
-                        self.job_id, self.ip, self.port)
+                        self.job_id, self.current_ip, self.port)
             )
 
-        return self.ip, self.port
+        return self.current_ip, self.port
 
     @gen.coroutine
     def stop(self, now=False):
@@ -347,7 +350,7 @@ class BatchSpawnerBase(Spawner):
             yield gen.sleep(1.0)
         if self.job_id:
             self.log.warn("Notebook server job {0} at {1}:{2} possibly failed to terminate".format(
-                             self.job_id, self.ip, self.port)
+                             self.job_id, self.current_ip, self.port)
                 )
 
 import re
