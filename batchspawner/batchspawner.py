@@ -15,9 +15,12 @@ Common attributes of batch submission / resource manager environments will inclu
   * remote execution via submission of templated scripts
   * job names instead of PIDs
 """
+import asyncio
+from async_generator import async_generator, yield_, yield_from_
 import pwd
 import os
 import re
+import sys
 
 import xml.etree.ElementTree as ET
 
@@ -411,6 +414,23 @@ class BatchSpawnerBase(Spawner):
                              self.job_id, self.current_ip, self.port)
                 )
 
+    @async_generator
+    async def progress(self):
+        while True:
+            if self.state_ispending():
+                await yield_({
+                    "message": "Pending in queue...",
+                })
+            elif self.state_isrunning():
+                await yield_({
+                    "message": "Cluster job running... waiting to connect",
+                })
+                return
+            else:
+                await yield_({
+                    "message": "Unknown status...",
+                })
+            await gen.sleep(.1)
 
 class BatchSpawnerRegexStates(BatchSpawnerBase):
     """Subclass of BatchSpawnerBase that uses config-supplied regular expressions
