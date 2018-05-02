@@ -54,7 +54,7 @@ def check_ip(spawner, value):
     if version_info < (0,7):
         assert spawner.user.server.ip == value
     else:
-        assert spawner.ip == value
+        assert spawner.current_ip == value
 
 def test_spawner_start_stop_poll(db, io_loop):
     spawner = new_spawner(db=db)
@@ -90,10 +90,8 @@ def test_spawner_state_reload(db, io_loop):
     spawner.clear_state()
     assert spawner.get_state() == {}
     spawner.load_state(state)
-    if version_info < (0,7):
-        check_ip(spawner, testhost)
-    else:
-        check_ip(spawner, '0.0.0.0')
+    # We used to check IP here, but that is actually only computed on start(),
+    # and is not part of the spawner's persistent state
     assert spawner.job_id == testjob
 
 def test_submit_failure(db, io_loop):

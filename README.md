@@ -139,7 +139,11 @@ clusters, as well as an option to run a local notebook directly on the jupyterhu
 
 ## Changelog
 
-### v0.8 (compatible with JupyterHub 0.5.0 through 0.8.1/0.9dev)
+### v0.8.1 (bugfix release)
+
+* Fix regression: single-user server binding address is overwritten by previous session server address, resulting in failure to start.  Issue #76
+
+### v0.8.0 (compatible with JupyterHub 0.5.0 through 0.8.1/0.9dev)
 
 * SlurmSpawner: Remove `--uid` for (at least) Slurm 17.11 compatibility.  If you use `sudo`, this should not be necessary, but because this is security related you should check that user management is as you expect.  If your configuration does not use `sudo` then you may need to add the `--uid` option in a custom `batch_script`.
 * add base options `req_ngpus` `req_partition` `req_account` and `req_options` 
@@ -155,6 +159,7 @@ clusters, as well as an option to run a local notebook directly on the jupyterhu
 * SlurmSpawner: add `req_qos` option
 * WrapSpawner and ProfilesSpawner, which provide mechanisms for runtime configuration of spawners, have been split out and moved to the [`wrapspawner`](https://github.com/jupyterhub/wrapspawner) package
 * Enable CI testing via Travis-CI
+
 
 ### v0.3 (tag: jhub-0.3, compatible with JupyterHub 0.3.0)
 
