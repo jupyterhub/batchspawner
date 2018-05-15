@@ -20,6 +20,8 @@ import os
 
 import xml.etree.ElementTree as ET
 
+from jinja2 import Template
+
 from tornado import gen
 from tornado.process import Subprocess
 from subprocess import CalledProcessError
@@ -33,6 +35,20 @@ from traitlets import (
 from jupyterhub.utils import random_port
 from jupyterhub.spawner import set_user_setuid
 import jupyterhub
+
+
+def format_template(template, *args, **kwargs):
+    """Format a template, either using jinja2 or str.format().
+
+    Use jinja2 if the template is a jinja2.Template, or contains '{{' or
+    '{%'.  Otherwise, use str.format() for backwards compatability with
+    old scripts (but you can't mix them).
+    """
+    if isinstance(template, Template):
+        return template.render(*args, **kwargs)
+    elif  '{{' in template or '{%' in template:
+        return Template(template).render(*args, **kwargs)
+    return template.format(*args, **kwargs)
 
 
 class BatchSpawnerBase(Spawner):
@@ -181,11 +197,11 @@ class BatchSpawnerBase(Spawner):
     @gen.coroutine
     def submit_batch_script(self):
         subvars = self.get_req_subvars()
-        cmd = self.batch_submit_cmd.format(**subvars)
+        cmd = format_template(self.batch_submit_cmd, **subvars)
         subvars['cmd'] = self.cmd_formatted_for_batch()
         if hasattr(self, 'user_options'):
             subvars.update(self.user_options)
-        script = self.batch_script.format(**subvars)
+        script = format_template(self.batch_script, **subvars)
         self.log.info('Spawner submitting job using ' + cmd)
         self.log.info('Spawner submitted script:\n' + script)
         out = yield self.run_command(cmd, input=script, env=self.get_env())
@@ -211,7 +227,7 @@ class BatchSpawnerBase(Spawner):
             return self.job_status
         subvars = self.get_req_subvars()
         subvars['job_id'] = self.job_id
-        cmd = self.batch_query_cmd.format(**subvars)
+        cmd = format_template(self.batch_query_cmd, **subvars)
         self.log.debug('Spawner querying job: ' + cmd)
         try:
             out = yield self.run_command(cmd)
@@ -230,7 +246,7 @@ class BatchSpawnerBase(Spawner):
     def cancel_batch_job(self):
         subvars = self.get_req_subvars()
         subvars['job_id'] = self.job_id
-        cmd = self.batch_cancel_cmd.format(**subvars)
+        cmd = format_template(self.batch_cancel_cmd, **subvars)
         self.log.info('Cancelling job ' + self.job_id + ': ' + cmd)
         yield self.run_command(cmd)
 
@@ -477,18 +493,19 @@ class SlurmSpawner(UserEnvMixin,BatchSpawnerRegexStates):
         ).tag(config=True)
 
     batch_script = Unicode("""#!/bin/bash
-#SBATCH --partition={partition}
-#SBATCH --time={runtime}
-#SBATCH --output={homedir}/jupyterhub_slurmspawner_%j.log
+#SBATCH --output={{homedir}}/jupyterhub_slurmspawner_%j.log
 #SBATCH --job-name=spawner-jupyterhub
-#SBATCH --workdir={homedir}
-#SBATCH --mem={memory}
-#SBATCH --export={keepvars}
+#SBATCH --workdir={{homedir}}
+#SBATCH --export={{keepvars}}
 #SBATCH --get-user-env=L
-#SBATCH {options}
+{% if partition  %}#SBATCH --partition={{partition}}
+{% endif %}{% if runtime    %}#SBATCH --time={{runtime}}
+{% endif %}{% if memory     %}#SBATCH --mem={{memory}}
+{% endif %}{% if nprocs     %}#SBATCH --cpus-per-task={{nprocs}}
+{% endif %}{% if options    %}#SBATCH {{options}}{% endif %}
 
 which jupyterhub-singleuser
-{cmd}
+{{cmd}}
 """).tag(config=True)
     # outputs line like "Submitted batch job 209"
     batch_submit_cmd = Unicode('sudo -E -u {username} sbatch --parsable').tag(config=True)
