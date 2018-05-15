@@ -115,6 +115,14 @@ class BatchSpawnerBase(Spawner):
         help="Other options to include into job submission script"
         ).tag(config=True)
 
+    req_prologue = Unicode('', \
+        help="Scipt to run before single user server starts."
+        ).tag(config=True)
+
+    req_epilogue = Unicode('', \
+        help="Scipt to run after single user server end."
+        ).tag(config=True)
+
     req_username = Unicode()
     @default('req_username')
     def _req_username_default(self):
@@ -504,8 +512,12 @@ class SlurmSpawner(UserEnvMixin,BatchSpawnerRegexStates):
 {% endif %}{% if nprocs     %}#SBATCH --cpus-per-task={{nprocs}}
 {% endif %}{% if options    %}#SBATCH {{options}}{% endif %}
 
+trap 'echo SIGTERM received' TERM
+{{prologue}}
 which jupyterhub-singleuser
-{{cmd}}
+srun {{cmd}}
+echo "jupyterhub-singleuser ended gracefully"
+{{epilogue}}
 """).tag(config=True)
     # outputs line like "Submitted batch job 209"
     batch_submit_cmd = Unicode('sudo -E -u {username} sbatch --parsable').tag(config=True)
