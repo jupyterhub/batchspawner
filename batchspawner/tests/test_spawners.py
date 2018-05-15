@@ -17,6 +17,7 @@ testhost = "userhost123"
 testjob  = "12345"
 
 class BatchDummy(BatchSpawnerRegexStates):
+    exec_prefix = ''
     batch_submit_cmd = Unicode('cat > /dev/null; echo '+testjob)
     batch_query_cmd = Unicode('echo RUN '+testhost)
     batch_cancel_cmd = Unicode('echo STOP')
