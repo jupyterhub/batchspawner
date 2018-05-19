@@ -1,5 +1,6 @@
 """Test BatchSpawner and subclasses"""
 
+import re
 from unittest import mock
 from .. import BatchSpawnerRegexStates
 from traitlets import Unicode
@@ -25,6 +26,29 @@ class BatchDummy(BatchSpawnerRegexStates):
     state_pending_re = Unicode('PEND')
     state_running_re = Unicode('RUN')
     state_exechost_re = Unicode('RUN (.*)$')
+
+    cmd_expectlist = None
+    out_expectlist = None
+    def run_command(self, *args, **kwargs):
+        """Overwriten run command to test templating and outputs"""
+        cmd = args[0]
+        # Test that the command matches the expectations
+        if self.cmd_expectlist:
+            run_re = self.cmd_expectlist.pop(0)
+            if run_re:
+                print('run:', run_re)
+                assert run_re.search(cmd) is not None, \
+                  "Failed test: re={0} cmd={1}".format(run_re, cmd)
+        # Run command normally
+        out = super().run_command(*args, **kwargs)
+        # Test that the command matches the expectations
+        if self.out_expectlist:
+            out_re = self.out_expectlist.pop(0)
+            if out_re:
+                print('out:', out_re)
+                assert out_re.search(cmd) is not None, \
+                  "Failed output: re={0} cmd={1} out={2}".format(out_re, cmd, out)
+        return out
 
 def new_spawner(db, **kwargs):
     kwargs.setdefault('cmd', ['singleuser_command'])
@@ -112,3 +136,38 @@ def test_pending_fails(db, io_loop):
         io_loop.run_sync(spawner.start, timeout=30)
     assert spawner.job_id == ''
     assert spawner.job_status == ''
+
+def test_templates(db, io_loop):
+    spawner = new_spawner(db=db)
+
+    # Test when not running
+    spawner.cmd_expectlist = [re.compile('.*RUN'),
+                             ]
+    status = io_loop.run_sync(spawner.poll, timeout=5)
+    assert status == 1
+    assert spawner.job_id == ''
+    assert spawner.get_state() == {}
+
+    # Test starting
+    spawner.cmd_expectlist = [re.compile('.*echo'),
+                              re.compile('.*RUN'),
+                             ]
+    io_loop.run_sync(spawner.start, timeout=5)
+    check_ip(spawner, testhost)
+    assert spawner.job_id == testjob
+
+    # Test poll - running
+    spawner.cmd_expectlist = [re.compile('.*RUN'),
+                             ]
+    status = io_loop.run_sync(spawner.poll, timeout=5)
+    assert status is None
+
+    # Test stopping
+    spawner.batch_query_cmd = 'echo NOPE'
+    spawner.cmd_expectlist = [re.compile('.*STOP'),
+                              re.compile('.*NOPE'),
+                             ]
+    io_loop.run_sync(spawner.stop, timeout=5)
+    status = io_loop.run_sync(spawner.poll, timeout=5)
+    assert status == 1
+    assert spawner.get_state() == {}

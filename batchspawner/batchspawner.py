@@ -215,6 +215,7 @@ class BatchSpawnerBase(Spawner):
         if hasattr(self, 'user_options'):
             subvars.update(self.user_options)
         script = format_template(self.batch_script, **subvars)
+        self._last_batch_script = script   # used for testing only
         self.log.info('Spawner submitting job using ' + cmd)
         self.log.info('Spawner submitted script:\n' + script)
         out = yield self.run_command(cmd, input=script, env=self.get_env())
