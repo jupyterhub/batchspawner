@@ -207,6 +207,12 @@ class BatchSpawnerBase(Spawner):
             return out
 
     @gen.coroutine
+    def _get_batch_script(self, **subvars):
+        """Format batch script from vars"""
+        # Colud be overridden by subclasses, but mainly useful for testing
+        return format_template(self.batch_script, **subvars)
+
+    @gen.coroutine
     def submit_batch_script(self):
         subvars = self.get_req_subvars()
         cmd = self.exec_prefix + ' ' + self.batch_submit_cmd
@@ -214,8 +220,7 @@ class BatchSpawnerBase(Spawner):
         subvars['cmd'] = self.cmd_formatted_for_batch()
         if hasattr(self, 'user_options'):
             subvars.update(self.user_options)
-        script = format_template(self.batch_script, **subvars)
-        self._last_batch_script = script   # used for testing only
+        script = yield self._get_batch_script(**subvars)
         self.log.info('Spawner submitting job using ' + cmd)
         self.log.info('Spawner submitted script:\n' + script)
         out = yield self.run_command(cmd, input=script, env=self.get_env())
