@@ -7,6 +7,7 @@ from traitlets import Unicode
 import time
 import pytest
 from jupyterhub import orm, version_info
+from tornado import gen
 
 try:
     from jupyterhub.objects import Hub
@@ -50,7 +51,7 @@ class BatchDummy(BatchSpawnerRegexStates):
                   "Failed output: re={0} cmd={1} out={2}".format(out_re, cmd, out)
         return out
 
-def new_spawner(db, **kwargs):
+def new_spawner(db, spawner_class=BatchDummy, **kwargs):
     kwargs.setdefault('cmd', ['singleuser_command'])
     user = db.query(orm.User).first()
     if version_info < (0,8):
@@ -65,10 +66,10 @@ def new_spawner(db, **kwargs):
     kwargs.setdefault('KILL_TIMEOUT', 1)
     kwargs.setdefault('poll_interval', 1)
     if version_info < (0,8):
-        return BatchDummy(db=db, **kwargs)
+        return spawner_class(db=db, **kwargs)
     else:
         print("JupyterHub >=0.8 detected, using new spawner creation")
-        return user._new_spawner('', spawner_class=BatchDummy, **kwargs)
+        return user._new_spawner('', spawner_class=spawner_class, **kwargs)
 
 def test_stress_submit(db, io_loop):
     for i in range(200):
@@ -138,6 +139,7 @@ def test_pending_fails(db, io_loop):
     assert spawner.job_status == ''
 
 def test_templates(db, io_loop):
+    """Test templates in the run_command commands"""
     spawner = new_spawner(db=db)
 
     # Test when not running
@@ -171,3 +173,45 @@ def test_templates(db, io_loop):
     status = io_loop.run_sync(spawner.poll, timeout=5)
     assert status == 1
     assert spawner.get_state() == {}
+
+def test_batch_script(db, io_loop):
+    """Test that the batch script substitutes {cmd}"""
+    class BatchDummyTestScript(BatchDummy):
+        @gen.coroutine
+        def _get_batch_script(self, **subvars):
+            script = yield super()._get_batch_script(**subvars)
+            assert 'singleuser_command' in script
+            return script
+    spawner = new_spawner(db=db, SpawnerClass=BatchDummyTestScript)
+    #status = io_loop.run_sync(spawner.poll, timeout=5)
+    io_loop.run_sync(spawner.start, timeout=5)
+    #status = io_loop.run_sync(spawner.poll, timeout=5)
+    #io_loop.run_sync(spawner.stop, timeout=5)
+
+def test_exec_prefix(db, io_loop):
+    """Test that all run_commands have exec_prefix"""
+    class BatchDummyTestScript(BatchDummy):
+        exec_prefix = 'PREFIX'
+        @gen.coroutine
+        def run_command(self, cmd, *args, **kwargs):
+            assert cmd.startswith('PREFIX ')
+            cmd = cmd[7:]
+            print(cmd)
+            out = yield super().run_command(cmd, *args, **kwargs)
+            return out
+    spawner = new_spawner(db=db, SpawnerClass=BatchDummyTestScript)
+    # Not running
+    status = io_loop.run_sync(spawner.poll, timeout=5)
+    assert status == 1
+    # Start
+    io_loop.run_sync(spawner.start, timeout=5)
+    assert spawner.job_id == testjob
+    # Poll
+    status = io_loop.run_sync(spawner.poll, timeout=5)
+    assert status is None
+    # Stop
+    spawner.batch_query_cmd = 'echo NOPE'
+    io_loop.run_sync(spawner.stop, timeout=5)
+    status = io_loop.run_sync(spawner.poll, timeout=5)
+    assert status == 1
+
