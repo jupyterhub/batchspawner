@@ -258,7 +258,8 @@ def run_spawner_script(db, io_loop, spawner, script,
     status = io_loop.run_sync(spawner.poll, timeout=5)
     assert status == 1
     # batch_submit_cmd
-    # batch_query_cmd
+    # batch_query_cmd    (result=pending)
+    # batch_query_cmd    (result=running)
     io_loop.run_sync(spawner.start, timeout=5)
     assert spawner.job_id == testjob
     check_ip(spawner, testhost)
@@ -274,14 +275,22 @@ def run_spawner_script(db, io_loop, spawner, script,
 
 
 def test_torque(db, io_loop):
-    spawner_kwargs = { }
+    spawner_kwargs = {
+        'req_nprocs': '5',
+        'req_memory': '5678',
+        'req_options': 'some_option_asdf',
+        }
     batch_script_re_list = [
         re.compile(r'singleuser_command'),
+        re.compile(r'mem=5678'),
+        re.compile(r'ppn=5'),
+        re.compile(r'^#PBS some_option_asdf', re.M),
         ]
     script = [
         (re.compile(r'sudo.*qsub'), str(testjob)),
-        (re.compile(r'sudo.*qstat'),  '<job_state>R</job_state><exec_host>{}/1</exec_host>'.format(testhost)),
-        (re.compile(r'sudo.*qstat'),  '<job_state>R</job_state>'+testhost),
+        (re.compile(r'sudo.*qstat'),  '<job_state>Q</job_state><exec_host></exec_host>'.format(testhost)),   # pending
+        (re.compile(r'sudo.*qstat'),  '<job_state>R</job_state><exec_host>{}/1</exec_host>'.format(testhost)),  # running
+        (re.compile(r'sudo.*qstat'),  '<job_state>R</job_state><exec_host>{}/1</exec_host>'.format(testhost)),  # running
         (re.compile(r'sudo.*qdel'),   'STOP'),
         (re.compile(r'sudo.*qstat'),  ''),
         ]
@@ -291,25 +300,127 @@ def test_torque(db, io_loop):
                        spawner_kwargs=spawner_kwargs)
 
 
-def test_slurm(db, io_loop):
+def test_moab(db, io_loop):
     spawner_kwargs = {
         'req_nprocs': '5',
         'req_memory': '5678',
         'req_options': 'some_option_asdf',
         }
     batch_script_re_list = [
-        re.compile(r'srun.*singleuser_command'),
-        re.compile(r'#SBATCH\s+--cpus-per-task=5'),
-        re.compile(r'#SBATCH\s+some_option_asdf'),
+        re.compile(r'singleuser_command'),
+        re.compile(r'mem=5678'),
+        re.compile(r'ppn=5'),
+        re.compile(r'^#PBS some_option_asdf', re.M),
+        ]
+    script = [
+        (re.compile(r'sudo.*msub'), str(testjob)),
+        (re.compile(r'sudo.*mdiag'),  'State="Idle"'.format(testhost)),   # pending
+        (re.compile(r'sudo.*mdiag'),  'State="Running" AllocNodeList="{}"'.format(testhost)),  # running
+        (re.compile(r'sudo.*mdiag'),  'State="Running" AllocNodeList="{}"'.format(testhost)),  # running
+        (re.compile(r'sudo.*mjobctl.*-c'),   'STOP'),
+        (re.compile(r'sudo.*mdiag'),  ''),
+        ]
+    from .. import MoabSpawner
+    run_spawner_script(db, io_loop, MoabSpawner, script,
+                       batch_script_re_list=batch_script_re_list,
+                       spawner_kwargs=spawner_kwargs)
+
+
+def test_slurm(db, io_loop):
+    spawner_kwargs = {
+        'req_runtime': '3-05:10:10',
+        'req_nprocs': '5',
+        'req_memory': '5678',
+        'req_options': 'some_option_asdf',
+        }
+    batch_script_re_list = [
+        re.compile(r'srun .* singleuser_command', re.X|re.M),
+        re.compile(r'^#SBATCH \s+ --cpus-per-task=5', re.X|re.M),
+        re.compile(r'^#SBATCH \s+ --time=3-05:10:10', re.X|re.M),
+        re.compile(r'^#SBATCH \s+ some_option_asdf', re.X|re.M),
         ]
     script = [
         (re.compile(r'sudo.*sbatch'),   str(testjob)),
-        (re.compile(r'sudo.*squeue'),   'RUNNING '+testhost),
+        (re.compile(r'sudo.*squeue'),   'PENDING '),          # pending
+        (re.compile(r'sudo.*squeue'),   'RUNNING '+testhost), # running
         (re.compile(r'sudo.*squeue'),   'RUNNING '+testhost),
         (re.compile(r'sudo.*scancel'),  'STOP'),
         (re.compile(r'sudo.*squeue'),   ''),
         ]
     from .. import SlurmSpawner
     run_spawner_script(db, io_loop, SlurmSpawner, script,
+                       batch_script_re_list=batch_script_re_list,
+                       spawner_kwargs=spawner_kwargs)
+
+
+#def test_gridengine(db, io_loop):
+#    spawner_kwargs = {
+#        'req_options': 'some_option_asdf',
+#        }
+#    batch_script_re_list = [
+#        re.compile(r'singleuser_command'),
+#        re.compile(r'#$\s+some_option_asdf'),
+#        ]
+#    script = [
+#        (re.compile(r'sudo.*qsub'),   'x x '+str(testjob)),
+#        (re.compile(r'sudo.*qstat'),   'PENDING '),
+#        (re.compile(r'sudo.*qstat'),   'RUNNING '+testhost),
+#        (re.compile(r'sudo.*qstat'),   'RUNNING '+testhost),
+#        (re.compile(r'sudo.*qdel'),  'STOP'),
+#        (re.compile(r'sudo.*qstat'),   ''),
+#        ]
+#    from .. import GridengineSpawner
+#    run_spawner_script(db, io_loop, GridengineSpawner, script,
+#                       batch_script_re_list=batch_script_re_list,
+#                       spawner_kwargs=spawner_kwargs)
+
+
+def test_condor(db, io_loop):
+    spawner_kwargs = {
+        'req_nprocs': '5',
+        'req_memory': '5678',
+        'req_options': 'some_option_asdf',
+        }
+    batch_script_re_list = [
+        re.compile(r'exec singleuser_command'),
+        re.compile(r'RequestCpus = 5'),
+        re.compile(r'RequestMemory = 5678'),
+        re.compile(r'^some_option_asdf', re.M),
+        ]
+    script = [
+        (re.compile(r'sudo.*condor_submit'),   'submitted to cluster {}'.format(str(testjob))),
+        (re.compile(r'sudo.*condor_q'),   '1,'.format(testhost)),  # pending
+        (re.compile(r'sudo.*condor_q'),   '2, @{}'.format(testhost)),  # runing
+        (re.compile(r'sudo.*condor_q'),   '2, @{}'.format(testhost)),
+        (re.compile(r'sudo.*condor_rm'),  'STOP'),
+        (re.compile(r'sudo.*condor_q'),   ''),
+        ]
+    from .. import CondorSpawner
+    run_spawner_script(db, io_loop, CondorSpawner, script,
+                       batch_script_re_list=batch_script_re_list,
+                       spawner_kwargs=spawner_kwargs)
+
+
+def test_lfs(db, io_loop):
+    spawner_kwargs = {
+        'req_nprocs': '5',
+        'req_memory': '5678',
+        'req_options': 'some_option_asdf',
+        'req_queue': 'some_queue',
+        }
+    batch_script_re_list = [
+        re.compile(r'^singleuser_command', re.M),
+        re.compile(r'#BSUB\s+-q\s+some_queue', re.M),
+        ]
+    script = [
+        (re.compile(r'sudo.*bsub'),   'Job <{}> is submitted to default queue <normal>'.format(str(testjob))),
+        (re.compile(r'sudo.*bjobs'),  'PEND '.format(testhost)),  # pending
+        (re.compile(r'sudo.*bjobs'),  'RUN {}'.format(testhost)),  # running
+        (re.compile(r'sudo.*bjobs'),  'RUN {}'.format(testhost)),
+        (re.compile(r'sudo.*bkill'),  'STOP'),
+        (re.compile(r'sudo.*bjobs'),  ''),
+        ]
+    from .. import LsfSpawner
+    run_spawner_script(db, io_loop, LsfSpawner, script,
                        batch_script_re_list=batch_script_re_list,
                        spawner_kwargs=spawner_kwargs)
