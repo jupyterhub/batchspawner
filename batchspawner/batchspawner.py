@@ -653,15 +653,15 @@ class LsfSpawner(BatchSpawnerBase):
     '''A Spawner that uses IBM's Platform Load Sharing Facility (LSF) to launch notebooks.'''
 
     batch_script = Unicode('''#!/bin/sh
-    #BSUB -R "select[type==any]"    # Allow spawning on non-uniform hardware
-    #BSUB -R "span[hosts=1]"        # Only spawn job on one server
-    #BSUB -q {queue}
-    #BSUB -J spawner-jupyterhub
-    #BSUB -o {homedir}/.jupyterhub.lsf.out
-    #BSUB -e {homedir}/.jupyterhub.lsf.err
+#BSUB -R "select[type==any]"    # Allow spawning on non-uniform hardware
+#BSUB -R "span[hosts=1]"        # Only spawn job on one server
+#BSUB -q {queue}
+#BSUB -J spawner-jupyterhub
+#BSUB -o {homedir}/.jupyterhub.lsf.out
+#BSUB -e {homedir}/.jupyterhub.lsf.err
 
-    {cmd}
-    ''').tag(config=True)
+{cmd}
+''').tag(config=True)
 
 
     batch_submit_cmd = Unicode('bsub').tag(config=True)
