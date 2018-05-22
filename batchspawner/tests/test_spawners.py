@@ -182,7 +182,7 @@ def test_batch_script(db, io_loop):
             script = yield super()._get_batch_script(**subvars)
             assert 'singleuser_command' in script
             return script
-    spawner = new_spawner(db=db, SpawnerClass=BatchDummyTestScript)
+    spawner = new_spawner(db=db, spawner_class=BatchDummyTestScript)
     #status = io_loop.run_sync(spawner.poll, timeout=5)
     io_loop.run_sync(spawner.start, timeout=5)
     #status = io_loop.run_sync(spawner.poll, timeout=5)
@@ -199,7 +199,7 @@ def test_exec_prefix(db, io_loop):
             print(cmd)
             out = yield super().run_command(cmd, *args, **kwargs)
             return out
-    spawner = new_spawner(db=db, SpawnerClass=BatchDummyTestScript)
+    spawner = new_spawner(db=db, spawner_class=BatchDummyTestScript)
     # Not running
     status = io_loop.run_sync(spawner.poll, timeout=5)
     assert status == 1
