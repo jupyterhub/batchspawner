@@ -215,14 +215,15 @@ def test_exec_prefix(db, io_loop):
     status = io_loop.run_sync(spawner.poll, timeout=5)
     assert status == 1
 
-def run_spawner_script(db, io_loop, spawner, script, batch_re_list=None, **kwargs):
+def run_spawner_script(db, io_loop, spawner, script,
+                       batch_script_re_list=None, spawner_kwargs={}):
     """Run a spawner script and test that the output and behavior is as expected.
 
     db: same as in this module
     io_loop: same as in this module
     spawner: the BatchSpawnerBase subclass to test
     script: list of (input_re_to_match, output)
-    batch_re_list: if given
+    batch_script_re_list: if given, assert batch script matches all of these
     """
     # Create the expected scripts
     cmd_expectlist, out_list = zip(*script)
@@ -231,7 +232,7 @@ def run_spawner_script(db, io_loop, spawner, script, batch_re_list=None, **kwarg
 
     class BatchDummyTestScript(spawner):
         @gen.coroutine
-        def run_command(self, cmd, *args, **kwargs):
+        def run_command(self, cmd, input=None, env=None):
             # Test the input
             run_re = cmd_expectlist.pop(0)
             if run_re:
@@ -239,11 +240,11 @@ def run_spawner_script(db, io_loop, spawner, script, batch_re_list=None, **kwarg
                 assert run_re.search(cmd) is not None, \
                   "Failed test: re={0} cmd={1}".format(run_re, cmd)
             # Test the stdin - will only be the batch script.  For
-            # each regular expression in batch_re_list, assert that
+            # each regular expression in batch_script_re_list, assert that
             # each re in that list matches the batch script.
-            if batch_re_list and 'input' in kwargs:
-                batch_script = kwargs['input']
-                for match_re in batch_re_list:
+            if batch_script_re_list and input:
+                batch_script = input
+                for match_re in batch_script_re_list:
                     assert match_re.search(batch_script) is not None, \
                       "Batch script does not match {}".format(match_re)
             # Return expected output.
@@ -251,7 +252,8 @@ def run_spawner_script(db, io_loop, spawner, script, batch_re_list=None, **kwarg
             print('  --> '+out)
             return out
 
-    spawner = new_spawner(db=db, spawner_class=BatchDummyTestScript, **kwargs)
+    spawner = new_spawner(db=db, spawner_class=BatchDummyTestScript,
+                          **spawner_kwargs)
     # Not running at beginning (no command run)
     status = io_loop.run_sync(spawner.poll, timeout=5)
     assert status == 1
@@ -272,30 +274,42 @@ def run_spawner_script(db, io_loop, spawner, script, batch_re_list=None, **kwarg
 
 
 def test_torque(db, io_loop):
-    script = [
-        (re.compile('sudo.*qsub'), str(testjob)),
-        (re.compile('sudo.*qstat'), '<job_state>R</job_state><exec_host>{}/1</exec_host>'.format(testhost)),
-        (re.compile('sudo.*qstat'), '<job_state>R</job_state>'+testhost),
-        (re.compile('sudo.*qdel'), 'STOP'),
-        (re.compile('sudo.*qstat'), ''),
+    spawner_kwargs = { }
+    batch_script_re_list = [
+        re.compile(r'singleuser_command'),
         ]
-    batch_re_list = [
-        re.compile('singleuser_command')
+    script = [
+        (re.compile(r'sudo.*qsub'), str(testjob)),
+        (re.compile(r'sudo.*qstat'),  '<job_state>R</job_state><exec_host>{}/1</exec_host>'.format(testhost)),
+        (re.compile(r'sudo.*qstat'),  '<job_state>R</job_state>'+testhost),
+        (re.compile(r'sudo.*qdel'),   'STOP'),
+        (re.compile(r'sudo.*qstat'),  ''),
         ]
     from .. import TorqueSpawner
-    run_spawner_script(db, io_loop, TorqueSpawner, script, batch_re_list)
+    run_spawner_script(db, io_loop, TorqueSpawner, script,
+                       batch_script_re_list=batch_script_re_list,
+                       spawner_kwargs=spawner_kwargs)
 
 
 def test_slurm(db, io_loop):
-    script = [
-        (re.compile('sudo.*sbatch'), str(testjob)),
-        (re.compile('sudo.*squeue'), 'RUNNING '+testhost),
-        (re.compile('sudo.*squeue'), 'RUNNING '+testhost),
-        (re.compile('sudo.*scancel'), 'STOP'),
-        (re.compile('sudo.*squeue'), ''),
+    spawner_kwargs = {
+        'req_nprocs': '5',
+        'req_memory': '5678',
+        'req_options': 'some_option_asdf',
+        }
+    batch_script_re_list = [
+        re.compile(r'srun.*singleuser_command'),
+        re.compile(r'#SBATCH\s+--cpus-per-task=5'),
+        re.compile(r'#SBATCH\s+some_option_asdf'),
         ]
-    batch_re_list = [
-        re.compile('srun.*singleuser_command')
+    script = [
+        (re.compile(r'sudo.*sbatch'),   str(testjob)),
+        (re.compile(r'sudo.*squeue'),   'RUNNING '+testhost),
+        (re.compile(r'sudo.*squeue'),   'RUNNING '+testhost),
+        (re.compile(r'sudo.*scancel'),  'STOP'),
+        (re.compile(r'sudo.*squeue'),   ''),
         ]
     from .. import SlurmSpawner
-    run_spawner_script(db, io_loop, SlurmSpawner, script, batch_re_list)
+    run_spawner_script(db, io_loop, SlurmSpawner, script,
+                       batch_script_re_list=batch_script_re_list,
+                       spawner_kwargs=spawner_kwargs)
