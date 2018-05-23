@@ -120,11 +120,11 @@ class BatchSpawnerBase(Spawner):
         ).tag(config=True)
 
     req_prologue = Unicode('', \
-        help="Scipt to run before single user server starts."
+        help="Script to run before single user server starts."
         ).tag(config=True)
 
     req_epilogue = Unicode('', \
-        help="Scipt to run after single user server end."
+        help="Script to run after single user server ends."
         ).tag(config=True)
 
     req_username = Unicode()
