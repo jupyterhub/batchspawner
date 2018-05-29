@@ -37,7 +37,7 @@ Common attributes of batch submission / resource manager environments will inclu
   * job names instead of PIDs
 
 `BatchSpawnerBase` provides several general mechanisms:
-  * configurable traits `req_foo` that are exposed as `{foo}` in job template scripts
+  * configurable traits `req_foo` that are exposed as `{foo}` in job template scripts.  Templates (submit scripts in particular) may also use the full power of [jinja2](http://jinja.pocoo.org/).  Templates are automatically detected if a `{{` or `{%` is present, otherwise str.format() used.
   * configurable command templates for submitting/querying/cancelling jobs
   * a generic concept of job-ID and ID-based job state tracking
   * overrideable hooks for subclasses to plug in logic at numerous points

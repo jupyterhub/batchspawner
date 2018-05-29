@@ -20,6 +20,8 @@ import os
 
 import xml.etree.ElementTree as ET
 
+from jinja2 import Template
+
 from tornado import gen
 from tornado.process import Subprocess
 from subprocess import CalledProcessError
@@ -34,34 +36,20 @@ from jupyterhub.utils import random_port
 from jupyterhub.spawner import set_user_setuid
 import jupyterhub
 
-@gen.coroutine
-def run_command(cmd, input=None, env=None):
-    proc = Subprocess(cmd, shell=True, env=env, stdin=Subprocess.STREAM, stdout=Subprocess.STREAM,stderr=Subprocess.STREAM)
-    inbytes = None
-    if input:
-        inbytes = input.encode()
-        try:
-            yield proc.stdin.write(inbytes)
-        except StreamClosedError as exp:
-            # Apparently harmless
-            pass
-    proc.stdin.close()
-    out = yield proc.stdout.read_until_close()
-    eout = yield proc.stderr.read_until_close()
-    proc.stdout.close()
-    proc.stderr.close()
-    eout = eout.decode().strip()
-    try:
-        err = yield proc.wait_for_exit()
-    except CalledProcessError:
-        #self.log.error("Subprocess returned exitcode %s" % proc.returncode)
-        #self.log.error(eout)
-        raise RuntimeError(eout)
-    if err != 0:
-        return err # exit error?
-    else:
-        out = out.decode().strip()
-        return out
+
+def format_template(template, *args, **kwargs):
+    """Format a template, either using jinja2 or str.format().
+
+    Use jinja2 if the template is a jinja2.Template, or contains '{{' or
+    '{%'.  Otherwise, use str.format() for backwards compatability with
+    old scripts (but you can't mix them).
+    """
+    if isinstance(template, Template):
+        return template.render(*args, **kwargs)
+    elif  '{{' in template or '{%' in template:
+        return Template(template).render(*args, **kwargs)
+    return template.format(*args, **kwargs)
+
 
 class BatchSpawnerBase(Spawner):
     """Base class for spawners using resource manager batch job submission mechanisms
@@ -89,6 +77,10 @@ class BatchSpawnerBase(Spawner):
 
     # override default server ip since batch jobs normally running remotely
     ip = Unicode("0.0.0.0", help="Address for singleuser server to listen at").tag(config=True)
+
+    exec_prefix = Unicode('sudo -E -u {username}', \
+        help="Standard executon prefix (e.g. the default sudo -E -u {username})"
+        ).tag(config=True)
 
     # all these req_foo traits will be available as substvars for templated strings
     req_queue = Unicode('', \
@@ -125,6 +117,14 @@ class BatchSpawnerBase(Spawner):
 
     req_options = Unicode('', \
         help="Other options to include into job submission script"
+        ).tag(config=True)
+
+    req_prologue = Unicode('', \
+        help="Script to run before single user server starts."
+        ).tag(config=True)
+
+    req_epilogue = Unicode('', \
+        help="Script to run after single user server ends."
         ).tag(config=True)
 
     req_username = Unicode()
@@ -178,16 +178,52 @@ class BatchSpawnerBase(Spawner):
         return ' '.join(self.cmd + self.get_args())
 
     @gen.coroutine
+    def run_command(self, cmd, input=None, env=None):
+        proc = Subprocess(cmd, shell=True, env=env, stdin=Subprocess.STREAM, stdout=Subprocess.STREAM,stderr=Subprocess.STREAM)
+        inbytes = None
+        if input:
+            inbytes = input.encode()
+            try:
+                yield proc.stdin.write(inbytes)
+            except StreamClosedError as exp:
+                # Apparently harmless
+                pass
+        proc.stdin.close()
+        out = yield proc.stdout.read_until_close()
+        eout = yield proc.stderr.read_until_close()
+        proc.stdout.close()
+        proc.stderr.close()
+        eout = eout.decode().strip()
+        try:
+            err = yield proc.wait_for_exit()
+        except CalledProcessError:
+            self.log.error("Subprocess returned exitcode %s" % proc.returncode)
+            self.log.error(eout)
+            raise RuntimeError(eout)
+        if err != 0:
+            return err # exit error?
+        else:
+            out = out.decode().strip()
+            return out
+
+    @gen.coroutine
+    def _get_batch_script(self, **subvars):
+        """Format batch script from vars"""
+        # Colud be overridden by subclasses, but mainly useful for testing
+        return format_template(self.batch_script, **subvars)
+
+    @gen.coroutine
     def submit_batch_script(self):
         subvars = self.get_req_subvars()
-        cmd = self.batch_submit_cmd.format(**subvars)
+        cmd = self.exec_prefix + ' ' + self.batch_submit_cmd
+        cmd = format_template(cmd, **subvars)
         subvars['cmd'] = self.cmd_formatted_for_batch()
         if hasattr(self, 'user_options'):
             subvars.update(self.user_options)
-        script = self.batch_script.format(**subvars)
+        script = yield self._get_batch_script(**subvars)
         self.log.info('Spawner submitting job using ' + cmd)
         self.log.info('Spawner submitted script:\n' + script)
-        out = yield run_command(cmd, input=script, env=self.get_env())
+        out = yield self.run_command(cmd, input=script, env=self.get_env())
         try:
             self.log.info('Job submitted. cmd: ' + cmd + ' output: ' + out)
             self.job_id = self.parse_job_id(out)
@@ -210,10 +246,11 @@ class BatchSpawnerBase(Spawner):
             return self.job_status
         subvars = self.get_req_subvars()
         subvars['job_id'] = self.job_id
-        cmd = self.batch_query_cmd.format(**subvars)
+        cmd = self.exec_prefix + ' ' + self.batch_query_cmd
+        cmd = format_template(cmd, **subvars)
         self.log.debug('Spawner querying job: ' + cmd)
         try:
-            out = yield run_command(cmd)
+            out = yield self.run_command(cmd)
             self.job_status = out
         except Exception as e:
             self.log.error('Error querying job ' + self.job_id)
@@ -229,9 +266,10 @@ class BatchSpawnerBase(Spawner):
     def cancel_batch_job(self):
         subvars = self.get_req_subvars()
         subvars['job_id'] = self.job_id
-        cmd = self.batch_cancel_cmd.format(**subvars)
+        cmd = self.exec_prefix + ' ' + self.batch_cancel_cmd
+        cmd = format_template(cmd, **subvars)
         self.log.info('Cancelling job ' + self.job_id + ': ' + cmd)
-        yield run_command(cmd)
+        yield self.run_command(cmd)
 
     def load_state(self, state):
         """load job_id from state"""
@@ -423,10 +461,10 @@ class TorqueSpawner(BatchSpawnerRegexStates):
 """).tag(config=True)
 
     # outputs job id string
-    batch_submit_cmd = Unicode('sudo -E -u {username} qsub').tag(config=True)
+    batch_submit_cmd = Unicode('qsub').tag(config=True)
     # outputs job data XML string
-    batch_query_cmd = Unicode('sudo -E -u {username} qstat -x {job_id}').tag(config=True)
-    batch_cancel_cmd = Unicode('sudo -E -u {username} qdel {job_id}').tag(config=True)
+    batch_query_cmd = Unicode('qstat -x {job_id}').tag(config=True)
+    batch_cancel_cmd = Unicode('qdel {job_id}').tag(config=True)
     # search XML string for job_state - [QH] = pending, R = running, [CE] = done
     state_pending_re = Unicode(r'<job_state>[QH]</job_state>').tag(config=True)
     state_running_re = Unicode(r'<job_state>R</job_state>').tag(config=True)
@@ -434,10 +472,10 @@ class TorqueSpawner(BatchSpawnerRegexStates):
 
 class MoabSpawner(TorqueSpawner):
     # outputs job id string
-    batch_submit_cmd = Unicode('sudo -E -u {username} msub').tag(config=True)
+    batch_submit_cmd = Unicode('msub').tag(config=True)
     # outputs job data XML string
-    batch_query_cmd = Unicode('sudo -E -u {username} mdiag -j {job_id} --xml').tag(config=True)
-    batch_cancel_cmd = Unicode('sudo -E -u {username} mjobctl -c {job_id}').tag(config=True)
+    batch_query_cmd = Unicode('mdiag -j {job_id} --xml').tag(config=True)
+    batch_cancel_cmd = Unicode('mjobctl -c {job_id}').tag(config=True)
     state_pending_re = Unicode(r'State="Idle"').tag(config=True)
     state_running_re = Unicode(r'State="Running"').tag(config=True)
     state_exechost_re = Unicode(r'AllocNodeList="([^\r\n\t\f :"]*)').tag(config=True)
@@ -476,24 +514,29 @@ class SlurmSpawner(UserEnvMixin,BatchSpawnerRegexStates):
         ).tag(config=True)
 
     batch_script = Unicode("""#!/bin/bash
-#SBATCH --partition={partition}
-#SBATCH --time={runtime}
-#SBATCH --output={homedir}/jupyterhub_slurmspawner_%j.log
+#SBATCH --output={{homedir}}/jupyterhub_slurmspawner_%j.log
 #SBATCH --job-name=spawner-jupyterhub
-#SBATCH --workdir={homedir}
-#SBATCH --mem={memory}
-#SBATCH --export={keepvars}
+#SBATCH --workdir={{homedir}}
+#SBATCH --export={{keepvars}}
 #SBATCH --get-user-env=L
-#SBATCH {options}
+{% if partition  %}#SBATCH --partition={{partition}}
+{% endif %}{% if runtime    %}#SBATCH --time={{runtime}}
+{% endif %}{% if memory     %}#SBATCH --mem={{memory}}
+{% endif %}{% if nprocs     %}#SBATCH --cpus-per-task={{nprocs}}
+{% endif %}{% if options    %}#SBATCH {{options}}{% endif %}
 
+trap 'echo SIGTERM received' TERM
+{{prologue}}
 which jupyterhub-singleuser
-{cmd}
+srun {{cmd}}
+echo "jupyterhub-singleuser ended gracefully"
+{{epilogue}}
 """).tag(config=True)
     # outputs line like "Submitted batch job 209"
-    batch_submit_cmd = Unicode('sudo -E -u {username} sbatch --parsable').tag(config=True)
+    batch_submit_cmd = Unicode('sbatch --parsable').tag(config=True)
     # outputs status and exec node like "RUNNING hostname"
-    batch_query_cmd = Unicode("sudo -E -u {username} squeue -h -j {job_id} -o '%T %B'").tag(config=True) #
-    batch_cancel_cmd = Unicode('sudo -E -u {username} scancel {job_id}').tag(config=True)
+    batch_query_cmd = Unicode("squeue -h -j {job_id} -o '%T %B'").tag(config=True) #
+    batch_cancel_cmd = Unicode('scancel {job_id}').tag(config=True)
     # use long-form states: PENDING,  CONFIGURING = pending
     #  RUNNING,  COMPLETING = running
     state_pending_re = Unicode(r'^(?:PENDING|CONFIGURING)').tag(config=True)
@@ -535,10 +578,10 @@ class GridengineSpawner(BatchSpawnerBase):
 """).tag(config=True)
 
     # outputs job id string
-    batch_submit_cmd = Unicode('sudo -E -u {username} qsub').tag(config=True)
+    batch_submit_cmd = Unicode('qsub').tag(config=True)
     # outputs job data XML string
-    batch_query_cmd = Unicode('sudo -E -u {username} qstat -xml').tag(config=True)
-    batch_cancel_cmd = Unicode('sudo -E -u {username} qdel {job_id}').tag(config=True)
+    batch_query_cmd = Unicode('qstat -xml').tag(config=True)
+    batch_cancel_cmd = Unicode('qdel {job_id}').tag(config=True)
 
     def parse_job_id(self, output):
         return output.split(' ')[2]
@@ -585,10 +628,10 @@ Queue
 """).tag(config=True)
 
     # outputs job id string
-    batch_submit_cmd = Unicode('sudo -E -u {username} condor_submit').tag(config=True)
+    batch_submit_cmd = Unicode('condor_submit').tag(config=True)
     # outputs job data XML string
     batch_query_cmd = Unicode('condor_q {job_id} -format "%s, " JobStatus -format "%s" RemoteHost -format "\n" True').tag(config=True)
-    batch_cancel_cmd = Unicode('sudo -E -u {username} condor_rm {job_id}').tag(config=True)
+    batch_cancel_cmd = Unicode('condor_rm {job_id}').tag(config=True)
     # job status: 1 = pending, 2 = running
     state_pending_re = Unicode(r'^1,').tag(config=True)
     state_running_re = Unicode(r'^2,').tag(config=True)
@@ -610,20 +653,20 @@ class LsfSpawner(BatchSpawnerBase):
     '''A Spawner that uses IBM's Platform Load Sharing Facility (LSF) to launch notebooks.'''
 
     batch_script = Unicode('''#!/bin/sh
-    #BSUB -R "select[type==any]"    # Allow spawning on non-uniform hardware
-    #BSUB -R "span[hosts=1]"        # Only spawn job on one server
-    #BSUB -q {queue}
-    #BSUB -J spawner-jupyterhub
-    #BSUB -o {homedir}/.jupyterhub.lsf.out
-    #BSUB -e {homedir}/.jupyterhub.lsf.err
+#BSUB -R "select[type==any]"    # Allow spawning on non-uniform hardware
+#BSUB -R "span[hosts=1]"        # Only spawn job on one server
+#BSUB -q {queue}
+#BSUB -J spawner-jupyterhub
+#BSUB -o {homedir}/.jupyterhub.lsf.out
+#BSUB -e {homedir}/.jupyterhub.lsf.err
 
-    {cmd}
-    ''').tag(config=True)
+{cmd}
+''').tag(config=True)
 
 
-    batch_submit_cmd = Unicode('sudo -E -u {username} bsub').tag(config=True)
-    batch_query_cmd = Unicode('sudo -E -u {username} bjobs -a -noheader -o "STAT EXEC_HOST" {job_id}').tag(config=True)
-    batch_cancel_cmd = Unicode('sudo -E -u {username} bkill {job_id}').tag(config=True)
+    batch_submit_cmd = Unicode('bsub').tag(config=True)
+    batch_query_cmd = Unicode('bjobs -a -noheader -o "STAT EXEC_HOST" {job_id}').tag(config=True)
+    batch_cancel_cmd = Unicode('bkill {job_id}').tag(config=True)
 
     def get_env(self):
         env = super().get_env()
