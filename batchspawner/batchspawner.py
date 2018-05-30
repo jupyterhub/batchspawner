@@ -16,7 +16,7 @@ Common attributes of batch submission / resource manager environments will inclu
   * job names instead of PIDs
 """
 import pwd
-import os
+import os, asyncio
 
 import xml.etree.ElementTree as ET
 
@@ -177,53 +177,46 @@ class BatchSpawnerBase(Spawner):
     def cmd_formatted_for_batch(self):
         return ' '.join(self.cmd + self.get_args())
 
-    @gen.coroutine
-    def run_command(self, cmd, input=None, env=None):
-        proc = Subprocess(cmd, shell=True, env=env, stdin=Subprocess.STREAM, stdout=Subprocess.STREAM,stderr=Subprocess.STREAM)
-        inbytes = None
+    async def run_command(self, cmd, input=None, env=None):
+        proc = await asyncio.create_subprocess_shell(cmd, env=env,
+                                                    stdin=asyncio.subprocess.PIPE,
+                                                    stdout=asyncio.subprocess.PIPE,
+                                                    stderr=asyncio.subprocess.PIPE)
+        inbytes=None
+
         if input:
-            inbytes = input.encode()
-            try:
-                yield proc.stdin.write(inbytes)
-            except StreamClosedError as exp:
-                # Apparently harmless
-                pass
-        proc.stdin.close()
-        out = yield proc.stdout.read_until_close()
-        eout = yield proc.stderr.read_until_close()
-        proc.stdout.close()
-        proc.stderr.close()
+            inbytes=input.encode()
+
+        out, eout = await proc.communicate(input=inbytes)
+
         eout = eout.decode().strip()
-        try:
-            err = yield proc.wait_for_exit()
-        except CalledProcessError:
-            self.log.error("Subprocess returned exitcode %s" % proc.returncode)
+
+        err = proc.returncode
+
+        if err != 0:
+            self.log.error("Subprocess returned exitcode %s" % err)
             self.log.error(eout)
             raise RuntimeError(eout)
-        if err != 0:
-            return err # exit error?
         else:
             out = out.decode().strip()
             return out
 
-    @gen.coroutine
-    def _get_batch_script(self, **subvars):
+    async def _get_batch_script(self, **subvars):
         """Format batch script from vars"""
         # Colud be overridden by subclasses, but mainly useful for testing
         return format_template(self.batch_script, **subvars)
 
-    @gen.coroutine
-    def submit_batch_script(self):
+    async def submit_batch_script(self):
         subvars = self.get_req_subvars()
         cmd = self.exec_prefix + ' ' + self.batch_submit_cmd
         cmd = format_template(cmd, **subvars)
         subvars['cmd'] = self.cmd_formatted_for_batch()
         if hasattr(self, 'user_options'):
             subvars.update(self.user_options)
-        script = yield self._get_batch_script(**subvars)
+        script = await self._get_batch_script(**subvars)
         self.log.info('Spawner submitting job using ' + cmd)
         self.log.info('Spawner submitted script:\n' + script)
-        out = yield self.run_command(cmd, input=script, env=self.get_env())
+        out = await self.run_command(cmd, input=script, env=self.get_env())
         try:
             self.log.info('Job submitted. cmd: ' + cmd + ' output: ' + out)
             self.job_id = self.parse_job_id(out)
@@ -238,8 +231,7 @@ class BatchSpawnerBase(Spawner):
              "and self.job_id as {job_id}."
         ).tag(config=True)
 
-    @gen.coroutine
-    def read_job_state(self):
+    async def read_job_state(self):
         if self.job_id is None or len(self.job_id) == 0:
             # job not running
             self.job_status = ''
@@ -250,7 +242,7 @@ class BatchSpawnerBase(Spawner):
         cmd = format_template(cmd, **subvars)
         self.log.debug('Spawner querying job: ' + cmd)
         try:
-            out = yield self.run_command(cmd)
+            out = await self.run_command(cmd)
             self.job_status = out
         except Exception as e:
             self.log.error('Error querying job ' + self.job_id)
@@ -262,14 +254,13 @@ class BatchSpawnerBase(Spawner):
         help="Command to stop/cancel a previously submitted job. Formatted like batch_query_cmd."
         ).tag(config=True)
 
-    @gen.coroutine
-    def cancel_batch_job(self):
+    async def cancel_batch_job(self):
         subvars = self.get_req_subvars()
         subvars['job_id'] = self.job_id
         cmd = self.exec_prefix + ' ' + self.batch_cancel_cmd
         cmd = format_template(cmd, **subvars)
         self.log.info('Cancelling job ' + self.job_id + ': ' + cmd)
-        yield self.run_command(cmd)
+        await self.run_command(cmd)
 
     def load_state(self, state):
         """load job_id from state"""
