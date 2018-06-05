@@ -187,23 +187,34 @@ class BatchSpawnerBase(Spawner):
         if input:
             inbytes=input.encode()
 
-        out, eout = await proc.communicate(input=inbytes)
-
-        eout = eout.decode().strip()
-
-        err = proc.returncode
-
-        if err != 0:
-            self.log.error("Subprocess returned exitcode %s" % err)
-            self.log.error(eout)
-            raise RuntimeError(eout)
+        try:
+            out, eout = await proc.communicate(input=inbytes)
+        except:
+            self.log.debug("Exception raised when trying to run command: %s" % command)
+            proc.kill()
+            self.log.debug("Running command failed done kill")
+            out, eout = await proc.communicate()
+            out = out.decode.strip()
+            eout = eout.decode.strip()
+            self.log.debug("Running command failed done communicate")
+            self.log.debug("Subprocess returned exitcode %s" % proc.returncode)
+            self.log.debug("Subprocess returned standard output %s" % out)
+            self.log.debug("Subprocess returned standard error %s" % eout)
+            raise
         else:
-            out = out.decode().strip()
-            return out
+            eout = eout.decode().strip()
+            err = proc.returncode
+            if err != 0:
+                self.log.error("Subprocess returned exitcode %s" % err)
+                self.log.error(eout)
+                raise RuntimeError(eout)
+            
+        out = out.decode().strip()
+        return out
 
     async def _get_batch_script(self, **subvars):
         """Format batch script from vars"""
-        # Colud be overridden by subclasses, but mainly useful for testing
+        # Could be overridden by subclasses, but mainly useful for testing
         return format_template(self.batch_script, **subvars)
 
     async def submit_batch_script(self):
