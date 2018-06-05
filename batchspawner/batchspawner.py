@@ -299,11 +299,10 @@ class BatchSpawnerBase(Spawner):
         "Return string, hostname or addr of running job, likely by parsing self.job_status"
         raise NotImplementedError("Subclass must provide implementation")
 
-    @gen.coroutine
-    def poll(self):
+    async def poll(self):
         """Poll the process"""
         if self.job_id is not None and len(self.job_id) > 0:
-            yield self.read_job_state()
+            await self.read_job_state()
             if self.state_isrunning() or self.state_ispending():
                 return None
             else:
@@ -319,8 +318,7 @@ class BatchSpawnerBase(Spawner):
         help="Polling interval (seconds) to check job state during startup"
         ).tag(config=True)
 
-    @gen.coroutine
-    def start(self):
+    async def start(self):
         """Start the process"""
         if self.user and self.user.server and self.user.server.port:
             self.port = self.user.server.port
@@ -329,7 +327,7 @@ class BatchSpawnerBase(Spawner):
              (jupyterhub.version_info >= (0,7) and not self.port):
             self.port = random_port()
             self.db.commit()
-        job = yield self.submit_batch_script()
+        job = await self.submit_batch_script()
 
         # We are called with a timeout, and if the timeout expires this function will
         # be interrupted at the next yield, and self.stop() will be called.
@@ -337,7 +335,7 @@ class BatchSpawnerBase(Spawner):
         # should either raise and Exception or loop forever.
         assert len(self.job_id) > 0
         while True:
-            yield self.poll()
+            await self.poll()
             if self.state_isrunning():
                 break
             else:
@@ -347,7 +345,7 @@ class BatchSpawnerBase(Spawner):
                     self.log.warn('Job ' + self.job_id + ' neither pending nor running.\n' +
                         self.job_status)
                 assert self.state_ispending()
-            yield gen.sleep(self.startup_poll_interval)
+            await gen.sleep(self.startup_poll_interval)
 
         self.current_ip = self.state_gethost()
         if jupyterhub.version_info < (0,7):
@@ -361,22 +359,21 @@ class BatchSpawnerBase(Spawner):
 
         return self.current_ip, self.port
 
-    @gen.coroutine
-    def stop(self, now=False):
+    async def stop(self, now=False):
         """Stop the singleuser server job.
 
         Returns immediately after sending job cancellation command if now=True, otherwise
         tries to confirm that job is no longer running."""
 
         self.log.info("Stopping server job " + self.job_id)
-        yield self.cancel_batch_job()
+        await self.cancel_batch_job()
         if now:
             return
         for i in range(10):
-            yield self.poll()
+            await self.poll()
             if not self.state_isrunning():
                 return
-            yield gen.sleep(1.0)
+            await gen.sleep(1.0)
         if self.job_id:
             self.log.warn("Notebook server job {0} at {1}:{2} possibly failed to terminate".format(
                              self.job_id, self.current_ip, self.port)
