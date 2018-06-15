@@ -513,7 +513,7 @@ class SlurmSpawner(UserEnvMixin,BatchSpawnerRegexStates):
         help="QoS name to submit job to resource manager"
         ).tag(config=True)
 
-   req_reservation = Unicode('', \
+    req_reservation = Unicode('', \
         help="Reservation name to submit to resource manager"
         ).tag(config=True)
 
