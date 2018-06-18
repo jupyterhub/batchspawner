@@ -139,6 +139,14 @@ clusters, as well as an option to run a local notebook directly on the jupyterhu
 
 ## Changelog
 
+### dev (requires minimum JupyterHub 0.7.2 and Python 3.4)
+
+* Add Jinja2 templating as an option for all scripts and commands.  If '{{' or `{%` is used anywhere in the string, it is used as a jinja2 template.
+* Update Slurm batch script.  Now, the single-user notebook is run in a job step, with a wrapper of `srun`.  This may need to be removed if you don't want environment variables limited.
+* Add new option exec_prefix, which defaults to `sudo -E -u {username}`.  This replaces explicit `sudo` in every batch command - changes in local commands may be needed.
+* Add many more tests.
+* Update minimum requirements to JupyterHub 0.8.1 and Python 3.4.
+
 ### v0.8.1 (bugfix release)
 
 * Fix regression: single-user server binding address is overwritten by previous session server address, resulting in failure to start.  Issue #76
