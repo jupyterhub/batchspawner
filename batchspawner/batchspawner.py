@@ -215,8 +215,8 @@ class BatchSpawnerBase(Spawner):
     @gen.coroutine
     def submit_batch_script(self):
         subvars = self.get_req_subvars()
-        cmd = self.exec_prefix + ' ' + self.batch_submit_cmd
-        cmd = format_template(cmd, **subvars)
+        cmd = ' '.join((format_template(self.exec_prefix, **subvars),
+                        format_template(self.batch_submit_cmd, **subvars)))
         subvars['cmd'] = self.cmd_formatted_for_batch()
         if hasattr(self, 'user_options'):
             subvars.update(self.user_options)
@@ -246,8 +246,8 @@ class BatchSpawnerBase(Spawner):
             return self.job_status
         subvars = self.get_req_subvars()
         subvars['job_id'] = self.job_id
-        cmd = self.exec_prefix + ' ' + self.batch_query_cmd
-        cmd = format_template(cmd, **subvars)
+        cmd = ' '.join((format_template(self.exec_prefix, **subvars),
+                        format_template(self.batch_query_cmd, **subvars)))
         self.log.debug('Spawner querying job: ' + cmd)
         try:
             out = yield self.run_command(cmd)
@@ -266,8 +266,8 @@ class BatchSpawnerBase(Spawner):
     def cancel_batch_job(self):
         subvars = self.get_req_subvars()
         subvars['job_id'] = self.job_id
-        cmd = self.exec_prefix + ' ' + self.batch_cancel_cmd
-        cmd = format_template(cmd, **subvars)
+        cmd = ' '.join((format_template(self.exec_prefix, **subvars),
+                        format_template(self.batch_cancel_cmd, **subvars)))
         self.log.info('Cancelling job ' + self.job_id + ': ' + cmd)
         yield self.run_command(cmd)
 
