@@ -124,7 +124,7 @@ def test_submit_failure(db, io_loop):
     spawner = new_spawner(db=db)
     assert spawner.get_state() == {}
     spawner.batch_submit_cmd = 'cat > /dev/null; true'
-    with pytest.raises(AssertionError) as e_info:
+    with pytest.raises(RuntimeError) as e_info:
         io_loop.run_sync(spawner.start, timeout=30)
     assert spawner.job_id == ''
     assert spawner.job_status == ''
@@ -133,7 +133,7 @@ def test_pending_fails(db, io_loop):
     spawner = new_spawner(db=db)
     assert spawner.get_state() == {}
     spawner.batch_query_cmd = 'echo xyz'
-    with pytest.raises(AssertionError) as e_info:
+    with pytest.raises(RuntimeError) as e_info:
         io_loop.run_sync(spawner.start, timeout=30)
     assert spawner.job_id == ''
     assert spawner.job_status == ''

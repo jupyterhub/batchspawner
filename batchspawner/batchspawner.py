@@ -344,7 +344,8 @@ class BatchSpawnerBase(Spawner):
         # be interrupted at the next yield, and self.stop() will be called.
         # So this function should not return unless successful, and if unsuccessful
         # should either raise and Exception or loop forever.
-        assert len(self.job_id) > 0
+        if len(self.job_id) == 0:
+            raise RuntimeError("Jupyter batch job submission failure (no jobid in output)")
         while True:
             yield self.poll()
             if self.state_isrunning():
@@ -355,7 +356,9 @@ class BatchSpawnerBase(Spawner):
                 else:
                     self.log.warn('Job ' + self.job_id + ' neither pending nor running.\n' +
                         self.job_status)
-                assert self.state_ispending()
+                    raise RuntimeError('The Jupyter batch job has disappeared '
+                           ' while pending in the queue or died immediately '
+                           ' after starting.')
             yield gen.sleep(self.startup_poll_interval)
 
         self.current_ip = self.state_gethost()
@@ -425,19 +428,19 @@ class BatchSpawnerRegexStates(BatchSpawnerBase):
         See Python docs: re.match.expand""").tag(config=True)
 
     def state_ispending(self):
-        assert self.state_pending_re
+        assert self.state_pending_re, "Misconfigured: define state_running_re"
         if self.job_status and re.search(self.state_pending_re, self.job_status):
             return True
         else: return False
 
     def state_isrunning(self):
-        assert self.state_running_re
+        assert self.state_running_re, "Misconfigured: define state_running_re"
         if self.job_status and re.search(self.state_running_re, self.job_status):
             return True
         else: return False
 
     def state_gethost(self):
-        assert self.state_exechost_re
+        assert self.state_exechost_re, "Misconfigured: define state_exechost_re"
         match = re.search(self.state_exechost_re, self.job_status)
         if not match:
             self.log.error("Spawner unable to match host addr in job status: " + self.job_status)
