@@ -516,6 +516,11 @@ class SlurmSpawner(UserEnvMixin,BatchSpawnerRegexStates):
         help="QoS name to submit job to resource manager"
         ).tag(config=True)
 
+    req_srun = Unicode('srun',
+        help="Job step wrapper, default 'srun'.  Set to '' you do not want "
+             "to run in job step (affects environment handling)"
+        ).tag(config=True)
+
     batch_script = Unicode("""#!/bin/bash
 #SBATCH --output={{homedir}}/jupyterhub_slurmspawner_%j.log
 #SBATCH --job-name=spawner-jupyterhub
@@ -531,7 +536,7 @@ class SlurmSpawner(UserEnvMixin,BatchSpawnerRegexStates):
 trap 'echo SIGTERM received' TERM
 {{prologue}}
 which jupyterhub-singleuser
-srun {{cmd}}
+{% if srun %}{{srun}} {% endif %}{{cmd}}
 echo "jupyterhub-singleuser ended gracefully"
 {{epilogue}}
 """).tag(config=True)
