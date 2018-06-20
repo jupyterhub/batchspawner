@@ -189,8 +189,8 @@ class BatchSpawnerBase(Spawner):
                 # Apparently harmless
                 pass
         proc.stdin.close()
-        out = yield proc.stdout.read_until_close()
-        eout = yield proc.stderr.read_until_close()
+        out, eout = yield [proc.stdout.read_until_close(),
+                           proc.stderr.read_until_close()]
         proc.stdout.close()
         proc.stderr.close()
         eout = eout.decode().strip()
