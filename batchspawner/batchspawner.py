@@ -143,6 +143,12 @@ class BatchSpawnerBase(Spawner):
     def _req_keepvars_default(self):
         return ','.join(self.get_env().keys())
 
+    req_keepvars_extra = Unicode(
+        help="Extra environment variables which should be configured, "
+              "added to the defaults in keepvars, "
+              "comma separated list.")
+
+
     batch_script = Unicode('', \
         help="Template for job submission script. Traits on this class named like req_xyz "
              "will be substituted in the template for {xyz} using string.Formatter. "
@@ -164,6 +170,8 @@ class BatchSpawnerBase(Spawner):
         subvars = {}
         for t in reqlist:
             subvars[t[4:]] = getattr(self, t)
+        if subvars.get('keepvars_extra'):
+            subvars['keepvars'] += ',' + subvars['keepvars_extra']
         return subvars
 
     batch_submit_cmd = Unicode('', \
