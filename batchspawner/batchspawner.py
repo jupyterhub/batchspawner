@@ -198,8 +198,11 @@ class BatchSpawnerBase(Spawner):
             err = yield proc.wait_for_exit()
         except CalledProcessError:
             self.log.error("Subprocess returned exitcode %s" % proc.returncode)
+            self.log.error('Stdout:')
+            self.log.error(out)
+            self.log.error('Stderr:')
             self.log.error(eout)
-            raise RuntimeError(eout)
+            raise RuntimeError('{} exit status {}: {}'.format(cmd, proc.returncode, eout))
         if err != 0:
             return err # exit error?
         else:
