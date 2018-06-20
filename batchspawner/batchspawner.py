@@ -460,7 +460,9 @@ class TorqueSpawner(BatchSpawnerRegexStates):
 #PBS -v {keepvars}
 #PBS {options}
 
+{prologue}
 {cmd}
+{epilogue}
 """).tag(config=True)
 
     # outputs job id string
@@ -582,7 +584,9 @@ class GridengineSpawner(BatchSpawnerBase):
 #$ -v {keepvars}
 #$ {options}
 
+{prologue}
 {cmd}
+{epilogue}
 """).tag(config=True)
 
     # outputs job id string
@@ -668,7 +672,9 @@ class LsfSpawner(BatchSpawnerBase):
 #BSUB -o {homedir}/.jupyterhub.lsf.out
 #BSUB -e {homedir}/.jupyterhub.lsf.err
 
+{prologue}
 {cmd}
+{epilogue}
 ''').tag(config=True)
 
 

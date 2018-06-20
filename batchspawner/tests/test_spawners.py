@@ -279,9 +279,11 @@ def test_torque(db, io_loop):
         'req_nprocs': '5',
         'req_memory': '5678',
         'req_options': 'some_option_asdf',
+        'req_prologue': 'PROLOGUE',
+        'req_epilogue': 'EPILOGUE',
         }
     batch_script_re_list = [
-        re.compile(r'singleuser_command'),
+        re.compile(r'^PROLOGUE.*^singleuser_command.*^EPILOGUE', re.S|re.M),
         re.compile(r'mem=5678'),
         re.compile(r'ppn=5'),
         re.compile(r'^#PBS some_option_asdf', re.M),
@@ -305,9 +307,11 @@ def test_moab(db, io_loop):
         'req_nprocs': '5',
         'req_memory': '5678',
         'req_options': 'some_option_asdf',
+        'req_prologue': 'PROLOGUE',
+        'req_epilogue': 'EPILOGUE',
         }
     batch_script_re_list = [
-        re.compile(r'singleuser_command'),
+        re.compile(r'^PROLOGUE.*^singleuser_command.*^EPILOGUE', re.S|re.M),
         re.compile(r'mem=5678'),
         re.compile(r'ppn=5'),
         re.compile(r'^#PBS some_option_asdf', re.M),
@@ -332,9 +336,11 @@ def test_slurm(db, io_loop):
         'req_nprocs': '5',
         'req_memory': '5678',
         'req_options': 'some_option_asdf',
+        'req_prologue': 'PROLOGUE',
+        'req_epilogue': 'EPILOGUE',
         }
     batch_script_re_list = [
-        re.compile(r'srun .* singleuser_command', re.X|re.M),
+        re.compile(r'PROLOGUE.*srun singleuser_command.*EPILOGUE', re.S),
         re.compile(r'^#SBATCH \s+ --cpus-per-task=5', re.X|re.M),
         re.compile(r'^#SBATCH \s+ --time=3-05:10:10', re.X|re.M),
         re.compile(r'^#SBATCH \s+ some_option_asdf', re.X|re.M),
@@ -407,9 +413,11 @@ def test_lfs(db, io_loop):
         'req_memory': '5678',
         'req_options': 'some_option_asdf',
         'req_queue': 'some_queue',
+        'req_prologue': 'PROLOGUE',
+        'req_epilogue': 'EPILOGUE',
         }
     batch_script_re_list = [
-        re.compile(r'^singleuser_command', re.M),
+        re.compile(r'^PROLOGUE.*^singleuser_command.*^EPILOGUE', re.S|re.M),
         re.compile(r'#BSUB\s+-q\s+some_queue', re.M),
         ]
     script = [
