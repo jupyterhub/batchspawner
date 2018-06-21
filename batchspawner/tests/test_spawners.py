@@ -339,7 +339,13 @@ def test_slurm(db, io_loop):
         re.compile(r'^#SBATCH \s+ --time=3-05:10:10', re.X|re.M),
         re.compile(r'^#SBATCH \s+ some_option_asdf', re.X|re.M),
         ]
-    script = [
+    from .. import SlurmSpawner
+    run_spawner_script(db, io_loop, SlurmSpawner, normal_slurm_script,
+                       batch_script_re_list=batch_script_re_list,
+                       spawner_kwargs=spawner_kwargs)
+# We tend to use slurm as our typical example job.  These allow quick
+# Slurm examples.
+normal_slurm_script = [
         (re.compile(r'sudo.*sbatch'),   str(testjob)),
         (re.compile(r'sudo.*squeue'),   'PENDING '),          # pending
         (re.compile(r'sudo.*squeue'),   'RUNNING '+testhost), # running
@@ -347,8 +353,18 @@ def test_slurm(db, io_loop):
         (re.compile(r'sudo.*scancel'),  'STOP'),
         (re.compile(r'sudo.*squeue'),   ''),
         ]
-    from .. import SlurmSpawner
-    run_spawner_script(db, io_loop, SlurmSpawner, script,
+from .. import SlurmSpawner
+def run_typical_slurm_spawner(db, io_loop,
+        spawner=SlurmSpawner,
+        script=normal_slurm_script,
+        batch_script_re_list=None,
+        spawner_kwargs={}):
+    """Run a full slurm job with default (overrideable) parameters.
+
+    This is useful, for example, for changing options and testing effect
+    of batch scripts.
+    """
+    return run_spawner_script(db, io_loop, spawner, script,
                        batch_script_re_list=batch_script_re_list,
                        spawner_kwargs=spawner_kwargs)
 
@@ -424,3 +440,28 @@ def test_lfs(db, io_loop):
     run_spawner_script(db, io_loop, LsfSpawner, script,
                        batch_script_re_list=batch_script_re_list,
                        spawner_kwargs=spawner_kwargs)
+
+
+def test_keepvars(db, io_loop):
+    # req_keepvars
+    spawner_kwargs = {
+        'req_keepvars': 'ABCDE',
+        }
+    batch_script_re_list = [
+        re.compile(r'--export=ABCDE', re.X|re.M),
+        ]
+    run_typical_slurm_spawner(db, io_loop,
+                              spawner_kwargs=spawner_kwargs,
+                              batch_script_re_list=batch_script_re_list)
+
+    # req_keepvars AND req_keepvars together
+    spawner_kwargs = {
+        'req_keepvars': 'ABCDE',
+        'req_keepvars_extra': 'XYZ',
+        }
+    batch_script_re_list = [
+        re.compile(r'--export=ABCDE,XYZ', re.X|re.M),
+        ]
+    run_typical_slurm_spawner(db, io_loop,
+                              spawner_kwargs=spawner_kwargs,
+                              batch_script_re_list=batch_script_re_list)
