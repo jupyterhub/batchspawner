@@ -79,52 +79,52 @@ class BatchSpawnerBase(Spawner):
     # override default server ip since batch jobs normally running remotely
     ip = Unicode("0.0.0.0", help="Address for singleuser server to listen at").tag(config=True)
 
-    exec_prefix = Unicode('sudo -E -u {username}', \
+    exec_prefix = Unicode('sudo -E -u {username}',
         help="Standard executon prefix (e.g. the default sudo -E -u {username})"
         ).tag(config=True)
 
     # all these req_foo traits will be available as substvars for templated strings
-    req_queue = Unicode('', \
+    req_queue = Unicode('',
         help="Queue name to submit job to resource manager"
         ).tag(config=True)
 
-    req_host = Unicode('', \
+    req_host = Unicode('',
         help="Host name of batch server to submit job to resource manager"
         ).tag(config=True)
 
-    req_memory = Unicode('', \
+    req_memory = Unicode('',
         help="Memory to request from resource manager"
         ).tag(config=True)
 
-    req_nprocs = Unicode('', \
+    req_nprocs = Unicode('',
         help="Number of processors to request from resource manager"
         ).tag(config=True)
 
-    req_ngpus = Unicode('', \
+    req_ngpus = Unicode('',
         help="Number of GPUs to request from resource manager"
         ).tag(config=True)
 
-    req_runtime = Unicode('', \
+    req_runtime = Unicode('',
         help="Length of time for submitted job to run"
         ).tag(config=True)
 
-    req_partition = Unicode('', \
+    req_partition = Unicode('',
         help="Partition name to submit job to resource manager"
         ).tag(config=True)
 
-    req_account = Unicode('', \
+    req_account = Unicode('',
         help="Account name string to pass to the resource manager"
         ).tag(config=True)
 
-    req_options = Unicode('', \
+    req_options = Unicode('',
         help="Other options to include into job submission script"
         ).tag(config=True)
 
-    req_prologue = Unicode('', \
+    req_prologue = Unicode('',
         help="Script to run before single user server starts."
         ).tag(config=True)
 
-    req_epilogue = Unicode('', \
+    req_epilogue = Unicode('',
         help="Script to run after single user server ends."
         ).tag(config=True)
 
@@ -144,7 +144,7 @@ class BatchSpawnerBase(Spawner):
     def _req_keepvars_default(self):
         return ','.join(self.get_env().keys())
 
-    batch_script = Unicode('', \
+    batch_script = Unicode('',
         help="Template for job submission script. Traits on this class named like req_xyz "
              "will be substituted in the template for {xyz} using string.Formatter. "
              "Must include {cmd} which will be replaced with the jupyterhub-singleuser command line."
@@ -167,7 +167,7 @@ class BatchSpawnerBase(Spawner):
             subvars[t[4:]] = getattr(self, t)
         return subvars
 
-    batch_submit_cmd = Unicode('', \
+    batch_submit_cmd = Unicode('',
         help="Command to run to submit batch scripts. Formatted using req_xyz traits as {xyz}."
         ).tag(config=True)
 
@@ -234,7 +234,7 @@ class BatchSpawnerBase(Spawner):
         return self.job_id
 
     # Override if your batch system needs something more elaborate to read the job status
-    batch_query_cmd = Unicode('', \
+    batch_query_cmd = Unicode('',
         help="Command to run to read job status. Formatted using req_xyz traits as {xyz} "
              "and self.job_id as {job_id}."
         ).tag(config=True)
@@ -325,7 +325,7 @@ class BatchSpawnerBase(Spawner):
             self.clear_state()
             return 1
 
-    startup_poll_interval = Float(0.5, \
+    startup_poll_interval = Float(0.5,
         help="Polling interval (seconds) to check job state during startup"
         ).tag(config=True)
 
@@ -526,11 +526,11 @@ echo "jupyterhub-singleuser ended gracefully"
 """).tag(config=True)
 
     # all these req_foo traits will be available as substvars for templated strings
-    req_cluster = Unicode('', \
+    req_cluster = Unicode('',
         help="Cluster name to submit job to resource manager"
         ).tag(config=True)
 
-    req_qos = Unicode('', \
+    req_qos = Unicode('',
         help="QoS name to submit job to resource manager"
         ).tag(config=True)
 
