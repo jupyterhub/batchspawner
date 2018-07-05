@@ -505,22 +505,6 @@ class UserEnvMixin:
 
 
 class SlurmSpawner(UserEnvMixin,BatchSpawnerRegexStates):
-    """A Spawner that just uses Popen to start local processes."""
-
-    # all these req_foo traits will be available as substvars for templated strings
-    req_cluster = Unicode('', \
-        help="Cluster name to submit job to resource manager"
-        ).tag(config=True)
-
-    req_qos = Unicode('', \
-        help="QoS name to submit job to resource manager"
-        ).tag(config=True)
-
-    req_srun = Unicode('srun',
-        help="Job step wrapper, default 'srun'.  Set to '' you do not want "
-             "to run in job step (affects environment handling)"
-        ).tag(config=True)
-
     batch_script = Unicode("""#!/bin/bash
 #SBATCH --output={{homedir}}/jupyterhub_slurmspawner_%j.log
 #SBATCH --job-name=spawner-jupyterhub
@@ -540,6 +524,21 @@ which jupyterhub-singleuser
 echo "jupyterhub-singleuser ended gracefully"
 {{epilogue}}
 """).tag(config=True)
+
+    # all these req_foo traits will be available as substvars for templated strings
+    req_cluster = Unicode('', \
+        help="Cluster name to submit job to resource manager"
+        ).tag(config=True)
+
+    req_qos = Unicode('', \
+        help="QoS name to submit job to resource manager"
+        ).tag(config=True)
+
+    req_srun = Unicode('srun',
+        help="Job step wrapper, default 'srun'.  Set to '' you do not want "
+             "to run in job step (affects environment handling)"
+        ).tag(config=True)
+
     # outputs line like "Submitted batch job 209"
     batch_submit_cmd = Unicode('sbatch --parsable').tag(config=True)
     # outputs status and exec node like "RUNNING hostname"
