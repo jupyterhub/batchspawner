@@ -17,6 +17,7 @@ Common attributes of batch submission / resource manager environments will inclu
 """
 import pwd
 import os
+import re
 
 import xml.etree.ElementTree as ET
 
@@ -46,7 +47,7 @@ def format_template(template, *args, **kwargs):
     """
     if isinstance(template, Template):
         return template.render(*args, **kwargs)
-    elif  '{{' in template or '{%' in template:
+    elif '{{' in template or '{%' in template:
         return Template(template).render(*args, **kwargs)
     return template.format(*args, **kwargs)
 
@@ -334,7 +335,7 @@ class BatchSpawnerBase(Spawner):
         if self.user and self.user.server and self.user.server.port:
             self.port = self.user.server.port
             self.db.commit()
-        elif (jupyterhub.version_info < (0,7) and not self.user.server.port)  or \
+        elif (jupyterhub.version_info < (0,7) and not self.user.server.port) or \
              (jupyterhub.version_info >= (0,7) and not self.port):
             self.port = random_port()
             self.db.commit()
@@ -356,8 +357,8 @@ class BatchSpawnerBase(Spawner):
                 else:
                     self.log.warn('Job ' + self.job_id + ' neither pending nor running.\n' +
                         self.job_status)
-                    raise RuntimeError('The Jupyter batch job has disappeared '
-                           ' while pending in the queue or died immediately '
+                    raise RuntimeError('The Jupyter batch job has disappeared'
+                           ' while pending in the queue or died immediately'
                            ' after starting.')
             yield gen.sleep(self.startup_poll_interval)
 
@@ -394,7 +395,6 @@ class BatchSpawnerBase(Spawner):
                              self.job_id, self.current_ip, self.port)
                 )
 
-import re
 
 class BatchSpawnerRegexStates(BatchSpawnerBase):
     """Subclass of BatchSpawnerBase that uses config-supplied regular expressions
@@ -429,15 +429,11 @@ class BatchSpawnerRegexStates(BatchSpawnerBase):
 
     def state_ispending(self):
         assert self.state_pending_re, "Misconfigured: define state_running_re"
-        if self.job_status and re.search(self.state_pending_re, self.job_status):
-            return True
-        else: return False
+        return bool(self.job_status and re.search(self.state_pending_re, self.job_status))
 
     def state_isrunning(self):
         assert self.state_running_re, "Misconfigured: define state_running_re"
-        if self.job_status and re.search(self.state_running_re, self.job_status):
-            return True
-        else: return False
+        return bool(self.job_status and re.search(self.state_running_re, self.job_status))
 
     def state_gethost(self):
         assert self.state_exechost_re, "Misconfigured: define state_exechost_re"
@@ -449,6 +445,7 @@ class BatchSpawnerRegexStates(BatchSpawnerBase):
             return match.groups()[0]
         else:
             return match.expand(self.state_exechost_exp)
+
 
 class TorqueSpawner(BatchSpawnerRegexStates):
     batch_script = Unicode("""#!/bin/sh
@@ -473,6 +470,7 @@ class TorqueSpawner(BatchSpawnerRegexStates):
     state_running_re = Unicode(r'<job_state>R</job_state>').tag(config=True)
     state_exechost_re = Unicode(r'<exec_host>((?:[\w_-]+\.?)+)/\d+').tag(config=True)
 
+
 class MoabSpawner(TorqueSpawner):
     # outputs job id string
     batch_submit_cmd = Unicode('msub').tag(config=True)
@@ -482,6 +480,7 @@ class MoabSpawner(TorqueSpawner):
     state_pending_re = Unicode(r'State="Idle"').tag(config=True)
     state_running_re = Unicode(r'State="Running"').tag(config=True)
     state_exechost_re = Unicode(r'AllocNodeList="([^\r\n\t\f :"]*)').tag(config=True)
+
 
 class UserEnvMixin:
     """Mixin class that computes values for USER, SHELL and HOME in the environment passed to
@@ -503,6 +502,7 @@ class UserEnvMixin:
         env = super().get_env()
         env = self.user_env(env)
         return env
+
 
 class SlurmSpawner(UserEnvMixin,BatchSpawnerRegexStates):
     """A Spawner that just uses Popen to start local processes."""
@@ -561,6 +561,7 @@ echo "jupyterhub-singleuser ended gracefully"
             raise e
         return id
 
+
 class MultiSlurmSpawner(SlurmSpawner):
     '''When slurm has been compiled with --enable-multiple-slurmd, the
        administrator sets the name of the slurmd instance via the slurmd -N
@@ -572,6 +573,7 @@ class MultiSlurmSpawner(SlurmSpawner):
     def state_gethost(self):
         host = SlurmSpawner.state_gethost(self)
         return self.daemon_resolver.get(host, host)
+
 
 class GridengineSpawner(BatchSpawnerBase):
     batch_script = Unicode("""#!/bin/bash
@@ -620,6 +622,7 @@ class GridengineSpawner(BatchSpawnerBase):
         self.log.error("Spawner unable to match host addr in job {0} with status {1}".format(self.job_id, self.job_status))
         return
 
+
 class CondorSpawner(UserEnvMixin,BatchSpawnerRegexStates):
     batch_script = Unicode("""
 Executable = /bin/sh
@@ -656,6 +659,7 @@ Queue
 
     def cmd_formatted_for_batch(self):
         return super(CondorSpawner,self).cmd_formatted_for_batch().replace('"','""').replace("'","''")
+
 
 class LsfSpawner(BatchSpawnerBase):
     '''A Spawner that uses IBM's Platform Load Sharing Facility (LSF) to launch notebooks.'''
@@ -700,7 +704,6 @@ class LsfSpawner(BatchSpawnerBase):
     def state_isrunning(self):
         if self.job_status:
             return self.job_status.split(' ')[0].upper() == 'RUN'
-
 
     def state_gethost(self):
         if self.job_status:
