@@ -429,11 +429,17 @@ class BatchSpawnerRegexStates(BatchSpawnerBase):
 
     def state_ispending(self):
         assert self.state_pending_re, "Misconfigured: define state_running_re"
-        return bool(self.job_status and re.search(self.state_pending_re, self.job_status))
+        if self.job_status and re.search(self.state_pending_re, self.job_status):
+            return True
+        else:
+            return False
 
     def state_isrunning(self):
         assert self.state_running_re, "Misconfigured: define state_running_re"
-        return bool(self.job_status and re.search(self.state_running_re, self.job_status))
+        if self.job_status and re.search(self.state_running_re, self.job_status):
+            return True
+        else:
+            return False
 
     def state_gethost(self):
         assert self.state_exechost_re, "Misconfigured: define state_exechost_re"
