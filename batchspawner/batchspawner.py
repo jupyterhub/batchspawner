@@ -335,8 +335,9 @@ class BatchSpawnerBase(Spawner):
         if self.user and self.user.server and self.user.server.port:
             self.port = self.user.server.port
             self.db.commit()
-        elif (jupyterhub.version_info < (0,7) and not self.user.server.port) or \
-             (jupyterhub.version_info >= (0,7) and not self.port):
+        elif (jupyterhub.version_info < (0,7) and not self.user.server.port) or (
+             jupyterhub.version_info >= (0,7) and not self.port
+        ):
             self.port = random_port()
             self.db.commit()
         job = yield self.submit_batch_script()
