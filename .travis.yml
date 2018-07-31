@@ -2,25 +2,23 @@
 language: python
 sudo: false
 python:
+    - 3.7-dev
     - 3.6
     - 3.5
     - 3.4
 env:
     - JHUB_VER=0.7.2
     - JHUB_VER=0.8.1
-    - JHUB_VER=0.9.0b2
+    - JHUB_VER=0.9.1
 matrix:
     include:
      - python: 3.7-dev
-       env: JHUB_VER=0.9.0b2
-     - python: 3.6
        env: JHUB_VER=master
     exclude:
      - python: 3.4
-       env: JHUB_VER=0.9.0b2
+       env: JHUB_VER=0.9.1
     allow_failures:
       - env: JHUB_VER=master
-      - python: 3.7-dev
 
 before_install:
     - npm install -g configurable-http-proxy
@@ -28,7 +26,7 @@ before_install:
     - git clone --quiet --branch $JHUB_VER https://github.com/jupyter/jupyterhub.git jupyterhub
 install:
 # Don't let requirements pull in tornado 5 yet except for jupyterhub master
-    - if [ $JHUB_VER != "master" -a $JHUB_VER != "0.9.0b2" ]; then pip install "tornado<5.0"; fi
+    - if [ $JHUB_VER != "master" -a $JHUB_VER != "0.9.1" ]; then pip install "tornado<5.0"; fi
     - pip install --pre -f travis-wheels/wheelhouse -r jupyterhub/dev-requirements.txt
     - pip install --pre -e jupyterhub
 
