@@ -27,6 +27,7 @@ before_install:
 install:
 # Don't let requirements pull in tornado 5 yet except for jupyterhub master
     - if [ $JHUB_VER != "master" -a $JHUB_VER != "0.9.1" ]; then pip install "tornado<5.0"; fi
+    - pip install jsonschema!=3.0.0a1   # issue #110, remove later
     - pip install --pre -f travis-wheels/wheelhouse -r jupyterhub/dev-requirements.txt
     - pip install --pre -e jupyterhub
 
