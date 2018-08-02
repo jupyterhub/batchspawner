@@ -24,6 +24,8 @@ This package formerly included WrapSpawner and ProfilesSpawner, which provide me
 
 ## Batch Spawners
 
+For information on the specific spawners, see [SPAWNERS.md](SPAWNERS.md).
+
 ### Overview
 
 This file contains an abstraction layer for batch job queueing systems (`BatchSpawnerBase`), and implements
@@ -81,6 +83,15 @@ to run Jupyter notebooks on an academic supercomputer cluster.
    # For our site we need to munge the execution hostname returned by qstat
    c.TorqueSpawner.state_exechost_exp = r'int-\1.mesabi.xyz.edu'
    ```
+
+### Security
+
+Unless otherwise stated for a specific spawner, assume that spawners
+*do* evaluate shell environment for users and thus the [security
+requriemnts of JupyterHub security for untrusted
+users](https://jupyterhub.readthedocs.io/en/stable/reference/websecurity.html)
+are not fulfilled.
+
 
 ## Provide different configurations of BatchSpawner
 
