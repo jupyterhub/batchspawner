@@ -483,6 +483,28 @@ class MoabSpawner(TorqueSpawner):
     state_running_re = Unicode(r'State="Running"').tag(config=True)
     state_exechost_re = Unicode(r'AllocNodeList="([^\r\n\t\f :"]*)').tag(config=True)
 
+class PBSSpawner(TorqueSpawner):
+    batch_script = Unicode("""#!/bin/sh
+{% if queue or host %}#PBS -q {% if queue  %}{{queue}}{% endif %}\
+{% if host %}@{{host}}{% endif %}{% endif %}
+#PBS -l walltime={{runtime}}
+#PBS -l select=1:ncpus={{nprocs}}:mem={{memory}}
+#PBS -N jupyterhub-singleuser
+#PBS -v {{keepvars}}
+{% if options %}#PBS {{options}}{% endif %}
+
+{{prologue}}
+{{cmd}}
+{{epilogue}}
+""").tag(config=True)
+
+    # outputs job data XML string
+    batch_query_cmd = Unicode('qstat -fx {job_id}').tag(config=True)
+
+    state_pending_re = Unicode(r'job_state = [QH]').tag(config=True)
+    state_running_re = Unicode(r'job_state = R').tag(config=True)
+    state_exechost_re = Unicode(r'exec_host = ([\w_-]+)/').tag(config=True)
+
 class UserEnvMixin:
     """Mixin class that computes values for USER, SHELL and HOME in the environment passed to
     the job submission subprocess in case the batch system needs these for the batch script."""
