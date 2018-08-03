@@ -250,7 +250,7 @@ class BatchSpawnerBase(Spawner):
         cmd = format_template(cmd, **subvars)
         self.log.debug('Spawner querying job: ' + cmd)
         try:
-            out = yield self.run_command(cmd)
+            out = yield self.run_command(cmd, env=self.get_env())
             self.job_status = out
         except Exception as e:
             self.log.error('Error querying job ' + self.job_id)
@@ -269,7 +269,7 @@ class BatchSpawnerBase(Spawner):
         cmd = self.exec_prefix + ' ' + self.batch_cancel_cmd
         cmd = format_template(cmd, **subvars)
         self.log.info('Cancelling job ' + self.job_id + ': ' + cmd)
-        yield self.run_command(cmd)
+        yield self.run_command(cmd, env=self.get_env())
 
     def load_state(self, state):
         """load job_id from state"""
@@ -499,7 +499,12 @@ class UserEnvMixin:
         return env
 
     def get_env(self):
-        """Add user environment variables"""
+        """Add user environment variables.
+
+        Everything here should be passed to the user's job.  If it is
+        used to authenticate to the batch system commands as an admin,
+        beware that the user will get them too.
+        """
         env = super().get_env()
         env = self.user_env(env)
         return env
