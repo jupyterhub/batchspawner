@@ -490,6 +490,8 @@ class PBSSpawner(TorqueSpawner):
 #PBS -l walltime={{runtime}}
 #PBS -l select=1:ncpus={{nprocs}}:mem={{memory}}
 #PBS -N jupyterhub-singleuser
+#PBS -o {{homedir}}/.jupyterhub.pbs.out
+#PBS -e {{homedir}}/.jupyterhub.pbs.err
 #PBS -v {{keepvars}}
 {% if options %}#PBS {{options}}{% endif %}
 
