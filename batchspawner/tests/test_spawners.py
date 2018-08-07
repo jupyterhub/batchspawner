@@ -332,12 +332,14 @@ def test_slurm(db, io_loop):
         'req_nprocs': '5',
         'req_memory': '5678',
         'req_options': 'some_option_asdf',
+        'req_reservation': 'RES123',
         }
     batch_script_re_list = [
         re.compile(r'srun .* singleuser_command', re.X|re.M),
         re.compile(r'^#SBATCH \s+ --cpus-per-task=5', re.X|re.M),
         re.compile(r'^#SBATCH \s+ --time=3-05:10:10', re.X|re.M),
         re.compile(r'^#SBATCH \s+ some_option_asdf', re.X|re.M),
+        re.compile(r'^#SBATCH \s+ --reservation=RES123', re.X|re.M),
         ]
     script = [
         (re.compile(r'sudo.*sbatch'),   str(testjob)),
