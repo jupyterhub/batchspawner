@@ -157,6 +157,13 @@ clusters, as well as an option to run a local notebook directly on the jupyterhu
 * Add new option exec_prefix, which defaults to `sudo -E -u {username}`.  This replaces explicit `sudo` in every batch command - changes in local commands may be needed.
 * Add many more tests.
 * Update minimum requirements to JupyterHub 0.8.1 and Python 3.4.
+* New option: `req_keepvars_extra`, which allows keeping extra variables in addition to what is defined by JupyterHub itself (addition of variables to keep instead of replacement).  #99
+* Add `req_prologue` and `req_epilogue` options to scripts which are inserted before/after the main jupyterhub-singleuser command, which allow for generic setup/cleanup without overriding the entire script.  #96
+* Add a new page `SPAWNERS.md` which information on specific spawners.  #97
+* Pass the environment dictionary to the queue and cancel commands as well.  This is mostly user environment, but may be useful to these commands as well in some cases.   #108, #111
+* SlurmSpawner: add the `req_reservation` option.  #
+* Improve debugging on failed submission by raising errors including error messages from the commands.  #106
+* Many other non-user or developer visible changes.  #107 #106 #100
 
 ### v0.8.1 (bugfix release)
 
