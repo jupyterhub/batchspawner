@@ -539,6 +539,7 @@ class SlurmSpawner(UserEnvMixin,BatchSpawnerRegexStates):
 {% endif %}{% if runtime    %}#SBATCH --time={{runtime}}
 {% endif %}{% if memory     %}#SBATCH --mem={{memory}}
 {% endif %}{% if nprocs     %}#SBATCH --cpus-per-task={{nprocs}}
+{% endif %}{% if reservation%}#SBATCH --reservation={{reservation}}
 {% endif %}{% if options    %}#SBATCH {{options}}{% endif %}
 
 trap 'echo SIGTERM received' TERM
@@ -561,6 +562,10 @@ echo "jupyterhub-singleuser ended gracefully"
     req_srun = Unicode('srun',
         help="Job step wrapper, default 'srun'.  Set to '' you do not want "
              "to run in job step (affects environment handling)"
+        ).tag(config=True)
+
+    req_reservation = Unicode('', \
+        help="Reservation name to submit to resource manager"
         ).tag(config=True)
 
     # outputs line like "Submitted batch job 209"

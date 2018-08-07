@@ -338,12 +338,14 @@ def test_slurm(db, io_loop):
         'req_options': 'some_option_asdf',
         'req_prologue': 'PROLOGUE',
         'req_epilogue': 'EPILOGUE',
+        'req_reservation': 'RES123',
         }
     batch_script_re_list = [
         re.compile(r'PROLOGUE.*srun singleuser_command.*EPILOGUE', re.S),
         re.compile(r'^#SBATCH \s+ --cpus-per-task=5', re.X|re.M),
         re.compile(r'^#SBATCH \s+ --time=3-05:10:10', re.X|re.M),
         re.compile(r'^#SBATCH \s+ some_option_asdf', re.X|re.M),
+        re.compile(r'^#SBATCH \s+ --reservation=RES123', re.X|re.M),
         ]
     from .. import SlurmSpawner
     run_spawner_script(db, io_loop, SlurmSpawner, normal_slurm_script,
