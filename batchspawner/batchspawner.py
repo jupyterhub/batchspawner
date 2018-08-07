@@ -30,7 +30,7 @@ from tornado.iostream import StreamClosedError
 
 from jupyterhub.spawner import Spawner
 from traitlets import (
-    Integer, Unicode, Float, Dict, default
+    Integer, Unicode, Float, Dict, Any, default
 )
 
 from jupyterhub.utils import random_port
@@ -163,6 +163,11 @@ class BatchSpawnerBase(Spawner):
 
     # Will get the address of the server as reported by job manager
     current_ip = Unicode()
+
+    # Random port function
+    random_port = Any(random_port,
+        help="Function to call to request a random port for singleuser spawer."
+        ).tag(config=True)
 
     # Prepare substitution variables for templates using req_xyz traits
     def get_req_subvars(self):
@@ -348,7 +353,7 @@ class BatchSpawnerBase(Spawner):
         elif (jupyterhub.version_info < (0,7) and not self.user.server.port) or (
              jupyterhub.version_info >= (0,7) and not self.port
         ):
-            self.port = random_port()
+            self.port = self.random_port()
             self.db.commit()
         job = yield self.submit_batch_script()
 

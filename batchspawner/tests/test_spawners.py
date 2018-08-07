@@ -271,7 +271,7 @@ def run_spawner_script(db, io_loop, spawner, script,
     # batch_poll_cmd
     status = io_loop.run_sync(spawner.poll, timeout=5)
     assert status == 1
-
+    return spawner
 
 
 def test_torque(db, io_loop):
@@ -475,3 +475,32 @@ def test_keepvars(db, io_loop):
     run_typical_slurm_spawner(db, io_loop,
                               spawner_kwargs=spawner_kwargs,
                               batch_script_re_list=batch_script_re_list)
+
+
+def test_random_port(db, io_loop):
+    # Test single fixed port (probably don't ever use this!)
+    spawner_kwargs = {
+        'random_port': lambda: 12345,
+        }
+    spawner = run_typical_slurm_spawner(db, io_loop,
+                              spawner_kwargs=spawner_kwargs)
+    assert spawner.port == 12345
+
+    # Random port range
+    import batchspawner.utils as utils
+    spawner_kwargs = {
+        'random_port': utils.random_port_range(12300, 12301),
+        }
+    spawner = run_typical_slurm_spawner(db, io_loop,
+                              spawner_kwargs=spawner_kwargs)
+    assert 12300 <= spawner.port and spawner.port <= 12301
+
+    # Arbitrary function
+    def port_555():
+        return 555
+    spawner_kwargs = {
+        'random_port': port_555,
+        }
+    spawner = run_typical_slurm_spawner(db, io_loop,
+                              spawner_kwargs=spawner_kwargs)
+    assert spawner.port == 555
