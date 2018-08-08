@@ -499,11 +499,12 @@ class UserEnvMixin:
         return env
 
     def get_env(self):
-        """Add user environment variables.
+        """Get user environment variables to be passed to the user's job
 
-        Everything here should be passed to the user's job.  If it is
-        used to authenticate to the batch system commands as an admin,
-        beware that the user will get them too.
+        Everything here should be passed to the user's job as
+        environment.  Caution: If these variables are used for
+        authentication to the batch system commands as an admin, be
+        aware that the user will receive access to these as well.
         """
         env = super().get_env()
         env = self.user_env(env)
