@@ -88,7 +88,7 @@ to run Jupyter notebooks on an academic supercomputer cluster.
 
 Unless otherwise stated for a specific spawner, assume that spawners
 *do* evaluate shell environment for users and thus the [security
-requriemnts of JupyterHub security for untrusted
+requiremnts of JupyterHub security for untrusted
 users](https://jupyterhub.readthedocs.io/en/stable/reference/websecurity.html)
 are not fulfilled because some (most?) spawners *do* start a user
 shell which will execute arbitrary user environment configuration
