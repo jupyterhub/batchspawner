@@ -42,8 +42,13 @@ Maintainers:
 
 # Checklist for making spawners
 
+Please document each of these things under the spawner list above, -
+even if it is "OK", we need to track status of all spawners.  If it is
+a bug, users really need to know.
+
 - Does your spawner read shell environment before starting?  (See
-  [Jupyterhub Security](https://jupyterhub.readthedocs.io/en/stable/reference/websecurity.html).
+  [Jupyterhub
+  Security](https://jupyterhub.readthedocs.io/en/stable/reference/websecurity.html).
 
 - Does your spawner send SIGTERM to the jupyterhub-singleuser process
   before SIGKILL?  It should, so that the process can terminate
