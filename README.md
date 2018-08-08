@@ -90,7 +90,11 @@ Unless otherwise stated for a specific spawner, assume that spawners
 *do* evaluate shell environment for users and thus the [security
 requriemnts of JupyterHub security for untrusted
 users](https://jupyterhub.readthedocs.io/en/stable/reference/websecurity.html)
-are not fulfilled.  This is something which we are working on.
+are not fulfilled because some (most?) spawners *do* start a user
+shell which will execute arbitrary user environment configuration
+(``.profile``, ``.bashrc`` and the like) unless users do not have
+access to their own cluster user account.  This is something which we
+are working on.
 
 
 ## Provide different configurations of BatchSpawner
