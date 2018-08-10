@@ -1,0 +1,60 @@
+# Notes on specific spawners
+
+## `TorqueSpawner`
+
+Maintainers:
+
+
+## `MoabSpawner`
+
+Subclass of TorqueSpawner
+
+Maintainers:
+
+
+## `SlurmSpawner`
+
+Maintainers: @rkdarst
+
+This spawner enforces the environment if `srun` is used to wrap the
+spawner command, which is the default.  If you *do* want user
+environment to be used, set `req_srun=''`.  However, this is not
+perfect: there is still a bash shell begun as the user which could run
+arbitrary startup, define shell aliases for `srun`, etc.
+
+Use of `srun` is required to gracefully terminate.
+
+
+## `GridengineSpawner`
+
+Maintainers:
+
+
+## `CondorSpawner`
+
+Maintainers:
+
+
+## `LsfSpawner`
+
+Maintainers:
+
+
+# Checklist for making spawners
+
+Please document each of these things under the spawner list above, -
+even if it is "OK", we need to track status of all spawners.  If it is
+a bug, users really need to know.
+
+- Does your spawner read shell environment before starting?  (See
+  [Jupyterhub
+  Security](https://jupyterhub.readthedocs.io/en/stable/reference/websecurity.html).
+
+- Does your spawner send SIGTERM to the jupyterhub-singleuser process
+  before SIGKILL?  It should, so that the process can terminate
+  gracefully.  Add `echo "terminated gracefully"` to the end of the
+  batch script - if you see this in your singleuser server output, you
+  know that you DO receive SIGTERM and terminate gracefully.  If your
+  batch system can not automatically send SIGTERM before SIGKILL, PR
+  #75 might help here, ask for it to be finished.
+
