@@ -17,6 +17,7 @@ except:
 
 testhost = "userhost123"
 testjob  = "12345"
+testport = 54321
 
 class BatchDummy(BatchSpawnerRegexStates):
     exec_prefix = ''
@@ -61,6 +62,7 @@ def new_spawner(db, spawner_class=BatchDummy, **kwargs):
         user = User(user, {})
     kwargs.setdefault('hub', hub)
     kwargs.setdefault('user', user)
+    kwargs.setdefault('current_port', testport)
     kwargs.setdefault('INTERRUPT_TIMEOUT', 1)
     kwargs.setdefault('TERM_TIMEOUT', 1)
     kwargs.setdefault('KILL_TIMEOUT', 1)
