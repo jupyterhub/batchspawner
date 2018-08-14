@@ -10,7 +10,7 @@ from jupyterhub import orm, version_info
 from tornado import gen
 
 try:
-    from jupyterhub.objects import Hub
+    from jupyterhub.objects import Hub, Server
     from jupyterhub.user import User
 except:
     pass
@@ -60,6 +60,8 @@ def new_spawner(db, spawner_class=BatchDummy, **kwargs):
     else:
         hub = Hub()
         user = User(user, {})
+        server = Server()
+        kwargs.setdefault('server', server)
     kwargs.setdefault('hub', hub)
     kwargs.setdefault('user', user)
     kwargs.setdefault('current_port', testport)
