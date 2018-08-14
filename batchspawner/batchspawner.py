@@ -349,7 +349,7 @@ class BatchSpawnerBase(Spawner):
     @gen.coroutine
     def start(self):
         """Start the process"""
-        if self.server:
+        if jupyterhub.version_info >= (0,8) and self.server:
             self.server.port = self.port
 
         job = yield self.submit_batch_script()
