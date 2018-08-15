@@ -26,15 +26,8 @@ before_install:
 install:
 # Don't let requirements pull in tornado 5 yet except for jupyterhub master
     - if [ $JHUB_VER != "master" -a $JHUB_VER != "0.9.1" ]; then pip install "tornado<5.0"; fi
-    - pip install attrs>=17.4.0   # pip isn't resolving jsonschema's requirements correctly
     - pip install --pre -r jupyterhub/dev-requirements.txt
     - pip install --pre -e jupyterhub
 
 script:
     - travis_retry py.test --lf --cov batchspawner batchspawner/tests -v
-#after_success:
-#    - codecov
-# matrix:
-#   include:
-#     - python: 3.5
-#       env: JUPYTERHUB_TEST_SUBDOMAIN_HOST=http://127.0.0.1.xip.io:8000
