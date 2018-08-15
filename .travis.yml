@@ -23,6 +23,7 @@ matrix:
 before_install:
     - npm install -g configurable-http-proxy
     - git clone --quiet --branch $JHUB_VER https://github.com/jupyter/jupyterhub.git jupyterhub
+    - pip install --upgrade pip
 install:
 # Don't let requirements pull in tornado 5 yet except for jupyterhub master
     - if [ $JHUB_VER != "master" -a $JHUB_VER != "0.9.1" ]; then pip install "tornado<5.0"; fi
