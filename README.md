@@ -24,6 +24,8 @@ This package formerly included WrapSpawner and ProfilesSpawner, which provide me
 
 ## Batch Spawners
 
+For information on the specific spawners, see [SPAWNERS.md](SPAWNERS.md).
+
 ### Overview
 
 This file contains an abstraction layer for batch job queueing systems (`BatchSpawnerBase`), and implements
@@ -82,6 +84,19 @@ to run Jupyter notebooks on an academic supercomputer cluster.
    c.TorqueSpawner.state_exechost_exp = r'int-\1.mesabi.xyz.edu'
    ```
 
+### Security
+
+Unless otherwise stated for a specific spawner, assume that spawners
+*do* evaluate shell environment for users and thus the [security
+requiremnts of JupyterHub security for untrusted
+users](https://jupyterhub.readthedocs.io/en/stable/reference/websecurity.html)
+are not fulfilled because some (most?) spawners *do* start a user
+shell which will execute arbitrary user environment configuration
+(``.profile``, ``.bashrc`` and the like) unless users do not have
+access to their own cluster user account.  This is something which we
+are working on.
+
+
 ## Provide different configurations of BatchSpawner
 
 ### Overview
@@ -138,6 +153,36 @@ clusters, as well as an option to run a local notebook directly on the jupyterhu
 
 
 ## Changelog
+
+### dev (requires minimum JupyterHub 0.7.2 and Python 3.4)
+
+Added (user)
+
+* Add Jinja2 templating as an option for all scripts and commands.  If '{{' or `{%` is used anywhere in the string, it is used as a jinja2 template.
+* Add new option exec_prefix, which defaults to `sudo -E -u {username}`.  This replaces explicit `sudo` in every batch command - changes in local commands may be needed.
+* New option: `req_keepvars_extra`, which allows keeping extra variables in addition to what is defined by JupyterHub itself (addition of variables to keep instead of replacement).  #99
+* Add `req_prologue` and `req_epilogue` options to scripts which are inserted before/after the main jupyterhub-singleuser command, which allow for generic setup/cleanup without overriding the entire script.  #96
+* SlurmSpawner: add the `req_reservation` option.  #
+
+Added (developer)
+
+* Add many more tests.
+* Add a new page `SPAWNERS.md` which information on specific spawners.  Begin trying to collect a list of spawner-specific contacts.  #97
+
+Changed
+
+* Update minimum requirements to JupyterHub 0.8.1 and Python 3.4.
+* Update Slurm batch script.  Now, the single-user notebook is run in a job step, with a wrapper of `srun`.  This may need to be removed using `req_srun=''` if you don't want environment variables limited.
+* Pass the environment dictionary to the queue and cancel commands as well.  This is mostly user environment, but may be useful to these commands as well in some cases. #108, #111  If these envioronment variables were used for authentication as an admin, be aware that there are pre-existing security issues because they may be passed to the user via the batch submit command, see #82.
+
+Fixed
+
+* Improve debugging on failed submission by raising errors including error messages from the commands.  #106
+* Many other non-user or developer visible changes.  #107 #106 #100
+* In Travis CI, blacklist jsonschema=3.0.0a1 because it breaks tests
+
+Removed
+
 
 ### v0.8.1 (bugfix release)
 

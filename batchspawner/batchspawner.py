@@ -16,7 +16,9 @@ Common attributes of batch submission / resource manager environments will inclu
   * job names instead of PIDs
 """
 import pwd
-import os, asyncio
+import os
+import asyncio
+import re
 
 import xml.etree.ElementTree as ET
 
@@ -46,7 +48,7 @@ def format_template(template, *args, **kwargs):
     """
     if isinstance(template, Template):
         return template.render(*args, **kwargs)
-    elif  '{{' in template or '{%' in template:
+    elif '{{' in template or '{%' in template:
         return Template(template).render(*args, **kwargs)
     return template.format(*args, **kwargs)
 
@@ -78,52 +80,52 @@ class BatchSpawnerBase(Spawner):
     # override default server ip since batch jobs normally running remotely
     ip = Unicode("0.0.0.0", help="Address for singleuser server to listen at").tag(config=True)
 
-    exec_prefix = Unicode('sudo -E -u {username}', \
+    exec_prefix = Unicode('sudo -E -u {username}',
         help="Standard executon prefix (e.g. the default sudo -E -u {username})"
         ).tag(config=True)
 
     # all these req_foo traits will be available as substvars for templated strings
-    req_queue = Unicode('', \
+    req_queue = Unicode('',
         help="Queue name to submit job to resource manager"
         ).tag(config=True)
 
-    req_host = Unicode('', \
+    req_host = Unicode('',
         help="Host name of batch server to submit job to resource manager"
         ).tag(config=True)
 
-    req_memory = Unicode('', \
+    req_memory = Unicode('',
         help="Memory to request from resource manager"
         ).tag(config=True)
 
-    req_nprocs = Unicode('', \
+    req_nprocs = Unicode('',
         help="Number of processors to request from resource manager"
         ).tag(config=True)
 
-    req_ngpus = Unicode('', \
+    req_ngpus = Unicode('',
         help="Number of GPUs to request from resource manager"
         ).tag(config=True)
 
-    req_runtime = Unicode('', \
+    req_runtime = Unicode('',
         help="Length of time for submitted job to run"
         ).tag(config=True)
 
-    req_partition = Unicode('', \
+    req_partition = Unicode('',
         help="Partition name to submit job to resource manager"
         ).tag(config=True)
 
-    req_account = Unicode('', \
+    req_account = Unicode('',
         help="Account name string to pass to the resource manager"
         ).tag(config=True)
 
-    req_options = Unicode('', \
+    req_options = Unicode('',
         help="Other options to include into job submission script"
         ).tag(config=True)
 
-    req_prologue = Unicode('', \
+    req_prologue = Unicode('',
         help="Script to run before single user server starts."
         ).tag(config=True)
 
-    req_epilogue = Unicode('', \
+    req_epilogue = Unicode('',
         help="Script to run after single user server ends."
         ).tag(config=True)
 
@@ -143,7 +145,12 @@ class BatchSpawnerBase(Spawner):
     def _req_keepvars_default(self):
         return ','.join(self.get_env().keys())
 
-    batch_script = Unicode('', \
+    req_keepvars_extra = Unicode(
+        help="Extra environment variables which should be configured, "
+              "added to the defaults in keepvars, "
+              "comma separated list.")
+
+    batch_script = Unicode('',
         help="Template for job submission script. Traits on this class named like req_xyz "
              "will be substituted in the template for {xyz} using string.Formatter. "
              "Must include {cmd} which will be replaced with the jupyterhub-singleuser command line."
@@ -164,9 +171,11 @@ class BatchSpawnerBase(Spawner):
         subvars = {}
         for t in reqlist:
             subvars[t[4:]] = getattr(self, t)
+        if subvars.get('keepvars_extra'):
+            subvars['keepvars'] += ',' + subvars['keepvars_extra']
         return subvars
 
-    batch_submit_cmd = Unicode('', \
+    batch_submit_cmd = Unicode('',
         help="Command to run to submit batch scripts. Formatted using req_xyz traits as {xyz}."
         ).tag(config=True)
 
@@ -196,11 +205,12 @@ class BatchSpawnerBase(Spawner):
             out, eout = await proc.communicate()
             out = out.decode.strip()
             eout = eout.decode.strip()
-            self.log.debug("Running command failed done communicate")
-            self.log.debug("Subprocess returned exitcode %s" % proc.returncode)
-            self.log.debug("Subprocess returned standard output %s" % out)
-            self.log.debug("Subprocess returned standard error %s" % eout)
-            raise
+            self.log.error("Subprocess returned exitcode %s" % proc.returncode)
+            self.log.error('Stdout:')
+            self.log.error(out)
+            self.log.error('Stderr:')
+            self.log.error(eout)
+            raise RuntimeError('{} exit status {}: {}'.format(cmd, proc.returncode, eout))
         else:
             eout = eout.decode().strip()
             err = proc.returncode
@@ -219,8 +229,8 @@ class BatchSpawnerBase(Spawner):
 
     async def submit_batch_script(self):
         subvars = self.get_req_subvars()
-        cmd = self.exec_prefix + ' ' + self.batch_submit_cmd
-        cmd = format_template(cmd, **subvars)
+        cmd = ' '.join((format_template(self.exec_prefix, **subvars),
+                        format_template(self.batch_submit_cmd, **subvars)))
         subvars['cmd'] = self.cmd_formatted_for_batch()
         if hasattr(self, 'user_options'):
             subvars.update(self.user_options)
@@ -237,7 +247,7 @@ class BatchSpawnerBase(Spawner):
         return self.job_id
 
     # Override if your batch system needs something more elaborate to read the job status
-    batch_query_cmd = Unicode('', \
+    batch_query_cmd = Unicode('',
         help="Command to run to read job status. Formatted using req_xyz traits as {xyz} "
              "and self.job_id as {job_id}."
         ).tag(config=True)
@@ -249,8 +259,8 @@ class BatchSpawnerBase(Spawner):
             return self.job_status
         subvars = self.get_req_subvars()
         subvars['job_id'] = self.job_id
-        cmd = self.exec_prefix + ' ' + self.batch_query_cmd
-        cmd = format_template(cmd, **subvars)
+        cmd = ' '.join((format_template(self.exec_prefix, **subvars),
+                        format_template(self.batch_query_cmd, **subvars)))
         self.log.debug('Spawner querying job: ' + cmd)
         try:
             out = await self.run_command(cmd)
@@ -268,8 +278,8 @@ class BatchSpawnerBase(Spawner):
     async def cancel_batch_job(self):
         subvars = self.get_req_subvars()
         subvars['job_id'] = self.job_id
-        cmd = self.exec_prefix + ' ' + self.batch_cancel_cmd
-        cmd = format_template(cmd, **subvars)
+        cmd = ' '.join((format_template(self.exec_prefix, **subvars),
+                        format_template(self.batch_cancel_cmd, **subvars)))
         self.log.info('Cancelling job ' + self.job_id + ': ' + cmd)
         await self.run_command(cmd)
 
@@ -325,7 +335,7 @@ class BatchSpawnerBase(Spawner):
             self.clear_state()
             return 1
 
-    startup_poll_interval = Float(0.5, \
+    startup_poll_interval = Float(0.5,
         help="Polling interval (seconds) to check job state during startup"
         ).tag(config=True)
 
@@ -334,8 +344,9 @@ class BatchSpawnerBase(Spawner):
         if self.user and self.user.server and self.user.server.port:
             self.port = self.user.server.port
             self.db.commit()
-        elif (jupyterhub.version_info < (0,7) and not self.user.server.port)  or \
-             (jupyterhub.version_info >= (0,7) and not self.port):
+        elif (jupyterhub.version_info < (0,7) and not self.user.server.port) or (
+             jupyterhub.version_info >= (0,7) and not self.port
+        ):
             self.port = random_port()
             self.db.commit()
         job = await self.submit_batch_script()
@@ -344,7 +355,8 @@ class BatchSpawnerBase(Spawner):
         # be interrupted at the next yield, and self.stop() will be called.
         # So this function should not return unless successful, and if unsuccessful
         # should either raise and Exception or loop forever.
-        assert len(self.job_id) > 0
+        if len(self.job_id) == 0:
+            raise RuntimeError("Jupyter batch job submission failure (no jobid in output)")
         while True:
             await self.poll()
             if self.state_isrunning():
@@ -355,7 +367,9 @@ class BatchSpawnerBase(Spawner):
                 else:
                     self.log.warn('Job ' + self.job_id + ' neither pending nor running.\n' +
                         self.job_status)
-                assert self.state_ispending()
+                    raise RuntimeError('The Jupyter batch job has disappeared'
+                           ' while pending in the queue or died immediately'
+                           ' after starting.')
             await gen.sleep(self.startup_poll_interval)
 
         self.current_ip = self.state_gethost()
@@ -390,7 +404,6 @@ class BatchSpawnerBase(Spawner):
                              self.job_id, self.current_ip, self.port)
                 )
 
-import re
 
 class BatchSpawnerRegexStates(BatchSpawnerBase):
     """Subclass of BatchSpawnerBase that uses config-supplied regular expressions
@@ -424,19 +437,21 @@ class BatchSpawnerRegexStates(BatchSpawnerBase):
         See Python docs: re.match.expand""").tag(config=True)
 
     def state_ispending(self):
-        assert self.state_pending_re
+        assert self.state_pending_re, "Misconfigured: define state_running_re"
         if self.job_status and re.search(self.state_pending_re, self.job_status):
             return True
-        else: return False
+        else:
+            return False
 
     def state_isrunning(self):
-        assert self.state_running_re
+        assert self.state_running_re, "Misconfigured: define state_running_re"
         if self.job_status and re.search(self.state_running_re, self.job_status):
             return True
-        else: return False
+        else:
+            return False
 
     def state_gethost(self):
-        assert self.state_exechost_re
+        assert self.state_exechost_re, "Misconfigured: define state_exechost_re"
         match = re.search(self.state_exechost_re, self.job_status)
         if not match:
             self.log.error("Spawner unable to match host addr in job status: " + self.job_status)
@@ -445,6 +460,7 @@ class BatchSpawnerRegexStates(BatchSpawnerBase):
             return match.groups()[0]
         else:
             return match.expand(self.state_exechost_exp)
+
 
 class TorqueSpawner(BatchSpawnerRegexStates):
     batch_script = Unicode("""#!/bin/sh
@@ -456,7 +472,9 @@ class TorqueSpawner(BatchSpawnerRegexStates):
 #PBS -v {keepvars}
 #PBS {options}
 
+{prologue}
 {cmd}
+{epilogue}
 """).tag(config=True)
 
     # outputs job id string
@@ -469,6 +487,7 @@ class TorqueSpawner(BatchSpawnerRegexStates):
     state_running_re = Unicode(r'<job_state>R</job_state>').tag(config=True)
     state_exechost_re = Unicode(r'<exec_host>((?:[\w_-]+\.?)+)/\d+').tag(config=True)
 
+
 class MoabSpawner(TorqueSpawner):
     # outputs job id string
     batch_submit_cmd = Unicode('msub').tag(config=True)
@@ -478,6 +497,7 @@ class MoabSpawner(TorqueSpawner):
     state_pending_re = Unicode(r'State="Idle"').tag(config=True)
     state_running_re = Unicode(r'State="Running"').tag(config=True)
     state_exechost_re = Unicode(r'AllocNodeList="([^\r\n\t\f :"]*)').tag(config=True)
+
 
 class UserEnvMixin:
     """Mixin class that computes values for USER, SHELL and HOME in the environment passed to
@@ -495,23 +515,19 @@ class UserEnvMixin:
         return env
 
     def get_env(self):
-        """Add user environment variables"""
+        """Get user environment variables to be passed to the user's job
+
+        Everything here should be passed to the user's job as
+        environment.  Caution: If these variables are used for
+        authentication to the batch system commands as an admin, be
+        aware that the user will receive access to these as well.
+        """
         env = super().get_env()
         env = self.user_env(env)
         return env
 
+
 class SlurmSpawner(UserEnvMixin,BatchSpawnerRegexStates):
-    """A Spawner that just uses Popen to start local processes."""
-
-    # all these req_foo traits will be available as substvars for templated strings
-    req_cluster = Unicode('', \
-        help="Cluster name to submit job to resource manager"
-        ).tag(config=True)
-
-    req_qos = Unicode('', \
-        help="QoS name to submit job to resource manager"
-        ).tag(config=True)
-
     batch_script = Unicode("""#!/bin/bash
 #SBATCH --output={{homedir}}/jupyterhub_slurmspawner_%j.log
 #SBATCH --job-name=spawner-jupyterhub
@@ -522,15 +538,35 @@ class SlurmSpawner(UserEnvMixin,BatchSpawnerRegexStates):
 {% endif %}{% if runtime    %}#SBATCH --time={{runtime}}
 {% endif %}{% if memory     %}#SBATCH --mem={{memory}}
 {% endif %}{% if nprocs     %}#SBATCH --cpus-per-task={{nprocs}}
+{% endif %}{% if reservation%}#SBATCH --reservation={{reservation}}
 {% endif %}{% if options    %}#SBATCH {{options}}{% endif %}
 
 trap 'echo SIGTERM received' TERM
 {{prologue}}
 which jupyterhub-singleuser
-srun {{cmd}}
+{% if srun %}{{srun}} {% endif %}{{cmd}}
 echo "jupyterhub-singleuser ended gracefully"
 {{epilogue}}
 """).tag(config=True)
+
+    # all these req_foo traits will be available as substvars for templated strings
+    req_cluster = Unicode('',
+        help="Cluster name to submit job to resource manager"
+        ).tag(config=True)
+
+    req_qos = Unicode('',
+        help="QoS name to submit job to resource manager"
+        ).tag(config=True)
+
+    req_srun = Unicode('srun',
+        help="Job step wrapper, default 'srun'.  Set to '' you do not want "
+             "to run in job step (affects environment handling)"
+        ).tag(config=True)
+
+    req_reservation = Unicode('', \
+        help="Reservation name to submit to resource manager"
+        ).tag(config=True)
+
     # outputs line like "Submitted batch job 209"
     batch_submit_cmd = Unicode('sbatch --parsable').tag(config=True)
     # outputs status and exec node like "RUNNING hostname"
@@ -552,6 +588,7 @@ echo "jupyterhub-singleuser ended gracefully"
             raise e
         return id
 
+
 class MultiSlurmSpawner(SlurmSpawner):
     '''When slurm has been compiled with --enable-multiple-slurmd, the
        administrator sets the name of the slurmd instance via the slurmd -N
@@ -564,6 +601,7 @@ class MultiSlurmSpawner(SlurmSpawner):
         host = SlurmSpawner.state_gethost(self)
         return self.daemon_resolver.get(host, host)
 
+
 class GridengineSpawner(BatchSpawnerBase):
     batch_script = Unicode("""#!/bin/bash
 #$ -j yes
@@ -573,7 +611,9 @@ class GridengineSpawner(BatchSpawnerBase):
 #$ -v {keepvars}
 #$ {options}
 
+{prologue}
 {cmd}
+{epilogue}
 """).tag(config=True)
 
     # outputs job id string
@@ -610,6 +650,7 @@ class GridengineSpawner(BatchSpawnerBase):
 
         self.log.error("Spawner unable to match host addr in job {0} with status {1}".format(self.job_id, self.job_status))
         return
+
 
 class CondorSpawner(UserEnvMixin,BatchSpawnerRegexStates):
     batch_script = Unicode("""
@@ -648,6 +689,7 @@ Queue
     def cmd_formatted_for_batch(self):
         return super(CondorSpawner,self).cmd_formatted_for_batch().replace('"','""').replace("'","''")
 
+
 class LsfSpawner(BatchSpawnerBase):
     '''A Spawner that uses IBM's Platform Load Sharing Facility (LSF) to launch notebooks.'''
 
@@ -659,7 +701,9 @@ class LsfSpawner(BatchSpawnerBase):
 #BSUB -o {homedir}/.jupyterhub.lsf.out
 #BSUB -e {homedir}/.jupyterhub.lsf.err
 
+{prologue}
 {cmd}
+{epilogue}
 ''').tag(config=True)
 
 
@@ -691,7 +735,6 @@ class LsfSpawner(BatchSpawnerBase):
     def state_isrunning(self):
         if self.job_status:
             return self.job_status.split(' ')[0].upper() == 'RUN'
-
 
     def state_gethost(self):
         if self.job_status:
