@@ -9,6 +9,7 @@ Added (user)
 * Add `req_prologue` and `req_epilogue` options to scripts which are inserted before/after the main jupyterhub-singleuser command, which allow for generic setup/cleanup without overriding the entire script.  #96
 * SlurmSpawner: add the `req_reservation` option.  #91
 * Add basic support for JupyterHub progress updates, but this is not used much yet.  #86
++* Add the option `admin_environment` which get passed to the batch submission commands (like for authentication) but *not* to the `--export
 
 Added (developer)
 

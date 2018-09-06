@@ -213,6 +213,23 @@ class BatchSpawnerBase(Spawner):
         """The command which is substituted inside of the batch script"""
         return ' '.join([self.batchspawner_singleuser_cmd] + self.cmd + self.get_args())
 
+    def get_admin_env(self):
+        """Get the environment passed to the batch submit/cancel/etc commands.
+
+        This contains all of the output from self.get_env(), plus any
+        variables defined in self.admin_environment.  In fact, only this
+        command is used to pass to batch commands, and the only use of
+        self.get_env() is producing the list of variables to be
+        --export='ed to.  Everything in get_env *must* also be in here
+        or else it won't be used.
+        """
+        env = self.get_env()
+        if self.admin_environment:
+            for key in self.admin_environment.split(','):
+                if key in os.environ and key not in env:
+                    env[key] = os.environ[key]
+        return env
+
     async def run_command(self, cmd, input=None, env=None):
         proc = await asyncio.create_subprocess_shell(cmd, env=env,
                                                     stdin=asyncio.subprocess.PIPE,
