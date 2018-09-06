@@ -143,15 +143,30 @@ class BatchSpawnerBase(Spawner):
     def _req_homedir_default(self):
         return pwd.getpwnam(self.user.name).pw_dir
 
-    req_keepvars = Unicode()
-    @default('req_keepvars')
-    def _req_keepvars_default(self):
+    req_keepvars_default = Unicode(
+        help="All environment variables to pass to the spawner.  This is set "
+             "to a default by JupyterHub, and if you change this list "
+             "the previous ones are _not_ included and your submissions will "
+             "break unless you re-add necessary variables.  Consider "
+             "req_keepvars for most use cases."
+)
+    @default('req_keepvars_all')
+    def _req_keepvars_all_default(self):
         return ','.join(self.get_env().keys())
 
-    req_keepvars_extra = Unicode(
+    req_keepvars = Unicode(
         help="Extra environment variables which should be configured, "
               "added to the defaults in keepvars, "
-              "comma separated list.")
+              "comma separated list.").tag(config=True)
+    admin_environment = Unicode(
+        help="Comma-separated list of environment variables to be passed to "
+             "the batch submit/cancel commands, but _not_ to the batch script "
+             "via --export.  This could be used, for example, to authenticate "
+             "the submit command as an admin user so that it can submit jobs "
+             "as another user.  These are _not_ included in an "
+             "--export={keepvars} type line in the batch script, but you "
+             "should check that your batch system actually does the right "
+             "thing here.").tag(config=True)
 
     batch_script = Unicode('',
         help="Template for job submission script. Traits on this class named like req_xyz "
@@ -177,8 +192,13 @@ class BatchSpawnerBase(Spawner):
         subvars = {}
         for t in reqlist:
             subvars[t[4:]] = getattr(self, t)
-        if subvars.get('keepvars_extra'):
-            subvars['keepvars'] += ',' + subvars['keepvars_extra']
+        # 'keepvars' is special: 'keepvars' goes through as the
+        # variable, but 'keepvars_default' is prepended to it.
+        # 'keepvars_default' is JH-required stuff so you have to try
+        # extra hard to override it.
+        if subvars.get('keepvars'):
+            subvars['keepvars_default'] += ',' + subvars['keepvars']
+        subvars['keepvars'] = subvars['keepvars_default']
         return subvars
 
     batch_submit_cmd = Unicode('',

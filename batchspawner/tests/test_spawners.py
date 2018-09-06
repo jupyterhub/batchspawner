@@ -491,7 +491,7 @@ def test_lfs(db, io_loop):
 def test_keepvars(db, io_loop):
     # req_keepvars
     spawner_kwargs = {
-        'req_keepvars': 'ABCDE',
+        'req_keepvars_default': 'ABCDE',
         }
     batch_script_re_list = [
         re.compile(r'--export=ABCDE', re.X|re.M),
@@ -500,10 +500,32 @@ def test_keepvars(db, io_loop):
                               spawner_kwargs=spawner_kwargs,
                               batch_script_re_list=batch_script_re_list)
 
-    # req_keepvars AND req_keepvars together
+    # req_keepvars
     spawner_kwargs = {
         'req_keepvars': 'ABCDE',
-        'req_keepvars_extra': 'XYZ',
+        }
+    batch_script_re_list = [
+        re.compile(r'--export=.*ABCDE', re.X|re.M),
+        ]
+    run_typical_slurm_spawner(db, io_loop,
+                              spawner_kwargs=spawner_kwargs,
+                              batch_script_re_list=batch_script_re_list)
+
+    # req_keepvars
+    spawner_kwargs = {
+        'admin_environment': 'ABCDE',
+        }
+    batch_script_re_list = [
+        re.compile(r'^((?!ABCDE).)*$', re.X|re.S),
+        ]
+    run_typical_slurm_spawner(db, io_loop,
+                              spawner_kwargs=spawner_kwargs,
+                              batch_script_re_list=batch_script_re_list)
+
+    # req_keepvars AND req_keepvars together
+    spawner_kwargs = {
+        'req_keepvars_default': 'ABCDE',
+        'req_keepvars': 'XYZ',
         }
     batch_script_re_list = [
         re.compile(r'--export=ABCDE,XYZ', re.X|re.M),
