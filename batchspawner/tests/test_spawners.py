@@ -330,6 +330,37 @@ def test_moab(db, io_loop):
                        spawner_kwargs=spawner_kwargs)
 
 
+def test_pbs(db, io_loop):
+    spawner_kwargs = {
+        'req_nprocs': '4',
+        'req_memory': '10256',
+        'req_options': 'some_option_asdf',
+        'req_host': 'some_pbs_admin_node',
+        'req_runtime': '08:00:00',
+        }
+    batch_script_re_list = [
+        re.compile(r'singleuser_command'),
+        re.compile(r'select=1'),
+        re.compile(r'ncpus=4'),
+        re.compile(r'mem=10256'),
+        re.compile(r'walltime=08:00:00'),
+        re.compile(r'@some_pbs_admin_node'),
+        re.compile(r'^#PBS some_option_asdf', re.M),
+        ]
+    script = [
+        (re.compile(r'sudo.*qsub'), str(testjob)),
+        (re.compile(r'sudo.*qstat'),  'job_state = Q'.format(testhost)),   # pending
+        (re.compile(r'sudo.*qstat'),  'job_state = R\nexec_host = {}/2*1'.format(testhost)),  # running
+        (re.compile(r'sudo.*qstat'),  'job_state = R\nexec_host = {}/2*1'.format(testhost)),  # running
+        (re.compile(r'sudo.*qdel'),   'STOP'),
+        (re.compile(r'sudo.*qstat'),  ''),
+        ]
+    from .. import PBSSpawner
+    run_spawner_script(db, io_loop, PBSSpawner, script,
+                       batch_script_re_list=batch_script_re_list,
+                       spawner_kwargs=spawner_kwargs)
+
+
 def test_slurm(db, io_loop):
     spawner_kwargs = {
         'req_runtime': '3-05:10:10',
