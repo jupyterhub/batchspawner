@@ -284,7 +284,7 @@ class BatchSpawnerBase(Spawner):
         script = await self._get_batch_script(**subvars)
         self.log.info('Spawner submitting job using ' + cmd)
         self.log.info('Spawner submitted script:\n' + script)
-        out = await self.run_command(cmd, input=script, env=self.get_env())
+        out = await self.run_command(cmd, input=script, env=self.get_admin_env())
         try:
             self.log.info('Job submitted. cmd: ' + cmd + ' output: ' + out)
             self.job_id = self.parse_job_id(out)
@@ -310,7 +310,7 @@ class BatchSpawnerBase(Spawner):
                         format_template(self.batch_query_cmd, **subvars)))
         self.log.debug('Spawner querying job: ' + cmd)
         try:
-            out = await self.run_command(cmd)
+            out = await self.run_command(cmd, env=self.get_admin_env())
             self.job_status = out
         except Exception as e:
             self.log.error('Error querying job ' + self.job_id)
@@ -328,7 +328,7 @@ class BatchSpawnerBase(Spawner):
         cmd = ' '.join((format_template(self.exec_prefix, **subvars),
                         format_template(self.batch_cancel_cmd, **subvars)))
         self.log.info('Cancelling job ' + self.job_id + ': ' + cmd)
-        await self.run_command(cmd)
+        await self.run_command(cmd, env=self.get_admin_env())
 
     def load_state(self, state):
         """load job_id from state"""
