@@ -178,6 +178,7 @@ Changed
 Fixed
 
 * Improve debugging on failed submission by raising errors including error messages from the commands.  #106
+* Allow selecting random ports via different logic, for example select a random port only within a certain range via: `c.BatchSpawner.random_port = batchspawner.utils.random_port_range(low, high)`.
 * Many other non-user or developer visible changes.  #107 #106 #100
 * In Travis CI, blacklist jsonschema=3.0.0a1 because it breaks tests
 
