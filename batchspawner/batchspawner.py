@@ -29,6 +29,7 @@ from subprocess import CalledProcessError
 from tornado.iostream import StreamClosedError
 
 from jupyterhub.spawner import Spawner
+from jupyterhub.traitlets import Command
 from traitlets import (
     Integer, Unicode, Float, Dict, default
 )
@@ -72,6 +73,9 @@ class BatchSpawnerBase(Spawner):
         state_isrunning
         state_gethost
     """
+
+    # override default since will need to set the listening port using the api
+    cmd = Command(['batchspawner-singleuser'], allow_none=True).tag(config=True)
 
     # override default since batch systems typically need longer
     start_timeout = Integer(300).tag(config=True)
@@ -163,6 +167,9 @@ class BatchSpawnerBase(Spawner):
 
     # Will get the address of the server as reported by job manager
     current_ip = Unicode()
+
+    # Will get the port of the server as reported by singleserver
+    current_port = Integer()
 
     # Prepare substitution variables for templates using req_xyz traits
     def get_req_subvars(self):
@@ -342,14 +349,9 @@ class BatchSpawnerBase(Spawner):
     @gen.coroutine
     def start(self):
         """Start the process"""
-        if self.user and self.user.server and self.user.server.port:
-            self.port = self.user.server.port
-            self.db.commit()
-        elif (jupyterhub.version_info < (0,7) and not self.user.server.port) or (
-             jupyterhub.version_info >= (0,7) and not self.port
-        ):
-            self.port = random_port()
-            self.db.commit()
+        if jupyterhub.version_info >= (0,8) and self.server:
+            self.server.port = self.port
+
         job = yield self.submit_batch_script()
 
         # We are called with a timeout, and if the timeout expires this function will
@@ -374,16 +376,19 @@ class BatchSpawnerBase(Spawner):
             yield gen.sleep(self.startup_poll_interval)
 
         self.current_ip = self.state_gethost()
+        while self.current_port == 0:
+            yield gen.sleep(self.startup_poll_interval)
+
         if jupyterhub.version_info < (0,7):
             # store on user for pre-jupyterhub-0.7:
-            self.user.server.port = self.port
+            self.user.server.port = self.current_port
             self.user.server.ip = self.current_ip
         self.db.commit()
         self.log.info("Notebook server job {0} started at {1}:{2}".format(
-                        self.job_id, self.current_ip, self.port)
+                        self.job_id, self.current_ip, self.current_port)
             )
 
-        return self.current_ip, self.port
+        return self.current_ip, self.current_port
 
     @gen.coroutine
     def stop(self, now=False):

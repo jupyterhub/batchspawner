@@ -14,6 +14,7 @@ import os
 import sys
 
 from setuptools import setup
+from glob import glob
 
 pjoin = os.path.join
 here = os.path.abspath(os.path.dirname(__file__))
@@ -28,6 +29,7 @@ with open(pjoin(here, 'README.md'), encoding='utf-8') as f:
 
 setup_args = dict(
     name                = 'batchspawner',
+    scripts             = glob(pjoin('scripts', '*')),
     packages            = ['batchspawner'],
     version             = version_ns['__version__'],
     description         = """Batchspawner: A spawner for Jupyterhub to spawn notebooks using batch resource managers.""",
