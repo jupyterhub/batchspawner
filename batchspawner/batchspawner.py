@@ -148,16 +148,18 @@ class BatchSpawnerBase(Spawner):
              "to a default by JupyterHub, and if you change this list "
              "the previous ones are _not_ included and your submissions will "
              "break unless you re-add necessary variables.  Consider "
-             "req_keepvars for most use cases."
-)
-    @default('req_keepvars_all')
-    def _req_keepvars_all_default(self):
-        return ','.join(self.get_env().keys())
+             "req_keepvars for most use cases, don't edit this under normal "
+             "use.").tag(config=True)
+
+    @default('req_keepvarsdefault')
+    def _req_keepvars_default_default(self):
+        return ','.join(super(BatchSpawnerBase, self).get_env().keys())
 
     req_keepvars = Unicode(
         help="Extra environment variables which should be configured, "
               "added to the defaults in keepvars, "
               "comma separated list.").tag(config=True)
+
     admin_environment = Unicode(
         help="Comma-separated list of environment variables to be passed to "
              "the batch submit/cancel commands, but _not_ to the batch script "
@@ -212,6 +214,20 @@ class BatchSpawnerBase(Spawner):
     def cmd_formatted_for_batch(self):
         """The command which is substituted inside of the batch script"""
         return ' '.join([self.batchspawner_singleuser_cmd] + self.cmd + self.get_args())
+
+    def get_env(self):
+        """Get the env dict from JH, adding req_keepvars options
+
+        get_env() returns the variables given by JH, but not anything
+        specified by req_keepvars since that's our creation.  Add those
+        (from the JH environment) to the environment passed to the batch
+        start/stop/cancel/etc commands.
+        """
+        env = super(BatchSpawnerBase, self).get_env()
+        for k in self.req_keepvars.split(',') + self.req_keepvars_default.split(','):
+            if k in os.environ:
+                env[k] = os.environ[k]
+        return env
 
     def get_admin_env(self):
         """Get the environment passed to the batch submit/cancel/etc commands.

@@ -1,6 +1,8 @@
 """Test BatchSpawner and subclasses"""
 
+import contextlib
 import itertools
+import os
 import re
 from unittest import mock
 from .. import BatchSpawnerRegexStates
@@ -19,6 +21,21 @@ except:
 testhost = "userhost123"
 testjob  = "12345"
 testport = 54321
+
+@contextlib.contextmanager
+def setenv_context(**kwargs):
+    """Context manage which sets and restores environment variables."""
+    orig = { }
+    for k, v in kwargs.items():
+        orig[k] = os.environ.get(k, None)
+        os.environ[k] = v
+    yield
+    for k in kwargs:
+        if orig[k] is not None:
+            os.environ[k] = orig[k]
+        else:
+            del os.environ[k]
+
 
 class BatchDummy(BatchSpawnerRegexStates):
     exec_prefix = ''
@@ -504,32 +521,50 @@ def test_lfs(db, io_loop):
 def test_keepvars(db, io_loop):
     """Test of environment handling
     """
-    # req_keepvars
+    environment = {'ABCDE': 'TEST1', 'VWXYZ': 'TEST2', 'XYZ': 'TEST3',}
+
+
+    # req_keepvars_default - anything NOT here should not be propogated.
     spawner_kwargs = {
         'req_keepvars_default': 'ABCDE',
         }
     batch_script_re_list = [
         re.compile(r'--export=ABCDE', re.X|re.M),
+        re.compile(r'^((?!JUPYTERHUB_API_TOKEN).)*$', re.X|re.S),  # *not* in the script
         ]
     def env_test(env):
-        assert 'ABCDE' in env
-    run_typical_slurm_spawner(db, io_loop,
-                              spawner_kwargs=spawner_kwargs,
-                              batch_script_re_list=batch_script_re_list,
-                              env_test=env_test)
+        # We can't test these - becasue removing these from the environment is
+        # a job of the batch system itself, which we do *not* run here.
+        #assert 'ABCDE' in env
+        #assert 'JUPYTERHUB_API_TOKEN' not in env
+        pass
+    with setenv_context(**environment):
+        run_typical_slurm_spawner(db, io_loop,
+                                  spawner_kwargs=spawner_kwargs,
+                                  batch_script_re_list=batch_script_re_list,
+                                  env_test=env_test)
 
-    # req_keepvars
+    # req_keepvars - this should be added to the environment
     spawner_kwargs = {
         'req_keepvars': 'ABCDE',
         }
     batch_script_re_list = [
         re.compile(r'--export=.*ABCDE', re.X|re.M),
+        re.compile(r'^((?!VWXYZ).)*$', re.X|re.M), # *not* in line
+        re.compile(r'--export=.*JUPYTERHUB_API_TOKEN', re.X|re.S),
         ]
-    run_typical_slurm_spawner(db, io_loop,
-                              spawner_kwargs=spawner_kwargs,
-                              batch_script_re_list=batch_script_re_list)
+    def env_test(env):
+        assert 'ABCDE' in env
+        assert 'VWXYZ' not in env
+    with setenv_context(**environment):
+        run_typical_slurm_spawner(db, io_loop,
+                                  spawner_kwargs=spawner_kwargs,
+                                  batch_script_re_list=batch_script_re_list,
+                                  env_test=env_test)
 
-    # req_keepvars
+    # admin_environment - this should be in the environment passed to
+    # run commands but not the --export command which is included in
+    # the batch scripts
     spawner_kwargs = {
         'admin_environment': 'ABCDE',
         }
@@ -539,13 +574,12 @@ def test_keepvars(db, io_loop):
     def env_test(env):
         assert 'ABCDE' in env
         assert 'VWXYZ' not in env
-    os.environ['ABCDE'] = 'TEST1'
-    os.environ['VWXYZ'] = 'TEST2'
-    run_typical_slurm_spawner(db, io_loop,
-                              spawner_kwargs=spawner_kwargs,
-                              batch_script_re_list=batch_script_re_list,
-                              env_test=env_test)
-    del os.environ['ABCDE'], os.environ['VWXYZ']
+        assert 'JUPYTERHUB_API_TOKEN' in env
+    with setenv_context(**environment):
+        run_typical_slurm_spawner(db, io_loop,
+                                  spawner_kwargs=spawner_kwargs,
+                                  batch_script_re_list=batch_script_re_list,
+                                  env_test=env_test)
 
     # req_keepvars AND req_keepvars together
     spawner_kwargs = {
@@ -555,6 +589,7 @@ def test_keepvars(db, io_loop):
     batch_script_re_list = [
         re.compile(r'--export=ABCDE,XYZ', re.X|re.M),
         ]
-    run_typical_slurm_spawner(db, io_loop,
-                              spawner_kwargs=spawner_kwargs,
-                              batch_script_re_list=batch_script_re_list)
+    with setenv_context(**environment):
+        run_typical_slurm_spawner(db, io_loop,
+                                  spawner_kwargs=spawner_kwargs,
+                                  batch_script_re_list=batch_script_re_list)
