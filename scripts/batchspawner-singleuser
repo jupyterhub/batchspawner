@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
 from batchspawner.singleuser import main
+from sys import argv
 
 if __name__ == '__main__':
     if len(argv) > 1:
-        from sys import argv
         main(argv[1:])
     else:
         main()

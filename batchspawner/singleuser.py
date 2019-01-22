@@ -20,6 +20,7 @@ except ImportError:
     BatchSingleUserLabApp = None
     pass
 else:
+    import os
     class BatchSingleUserLabApp(BatchSingleUserNotebookApp, LabApp):
 
         @default("default_url")
