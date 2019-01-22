@@ -3,4 +3,8 @@
 from batchspawner.singleuser import main
 
 if __name__ == '__main__':
-    main()
+    if len(argv) > 1:
+        from sys import argv
+        main(argv[1:])
+    else:
+        main()

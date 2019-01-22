@@ -1,7 +1,6 @@
 from jupyterhub.singleuser import SingleUserNotebookApp
 from jupyterhub.utils import random_port, url_path_join
 from traitlets import default
-import sys
 
 class BatchSingleUserNotebookApp(SingleUserNotebookApp):
     @default('port')
@@ -23,7 +22,7 @@ except ImportError:
 else:
     class BatchSingleUserLabApp(BatchSingleUserNotebookApp, LabApp):
 
-        @default
+        @default("default_url")
         def _default_url(self):
             """when using jupyter-labhub, jupyterlab is default ui"""
             return "/lab"
@@ -47,11 +46,14 @@ else:
             settings['page_config_data']['token'] = api_token
 
 def main(argv=None):
-    if len(argv) > 1 and argv[1] == "lab" and BatchSingleUserLabApp != None:
-        del argv[1]
+    if isinstance(argv, list) and argv[0] == "lab" and BatchSingleUserLabApp != None:
+        if len(argv) > 1:
+            del argv[0]
+        else:
+            argv=None
         return BatchSingleUserLabApp.launch_instance(argv)
     else:
         return BatchSingleUserNotebookApp.launch_instance(argv)
 
 if __name__ == "__main__":
-    main(sys.argv)
+    main()
