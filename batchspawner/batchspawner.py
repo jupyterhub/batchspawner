@@ -18,6 +18,9 @@ Common attributes of batch submission / resource manager environments will inclu
 import pwd
 import os
 import re
+import tempfile
+import stat
+import json
 
 import xml.etree.ElementTree as ET
 
@@ -82,6 +85,10 @@ class BatchSpawnerBase(Spawner):
 
     # override default server ip since batch jobs normally running remotely
     ip = Unicode("0.0.0.0", help="Address for singleuser server to listen at").tag(config=True)
+
+    # use a script to submit to batch queueing system instead of piping it in
+    use_scriptfile = False
+    script_mode = stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH #755 by default
 
     exec_prefix = Unicode('sudo -E -u {username}',
         help="Standard executon prefix (e.g. the default sudo -E -u {username})"
@@ -193,8 +200,23 @@ class BatchSpawnerBase(Spawner):
         return ' '.join(self.cmd + self.get_args())
 
     @gen.coroutine
-    def run_command(self, cmd, input=None, env=None):
-        proc = Subprocess(cmd, shell=True, env=env, stdin=Subprocess.STREAM, stdout=Subprocess.STREAM,stderr=Subprocess.STREAM)
+    def run_command(self, cmd, input=None, env=None, use_scriptfile=False):
+        if use_scriptfile and input:
+            script = tempfile.mkstemp(".sh", "jupyter_%s_"%self.get_req_subvars()["username"], dir=self.script_home, text=True)[1]
+            if env:
+                inputlines = input.split(os.linesep, 1)
+                input = inputlines[0]+os.linesep
+                input+= os.linesep.join(["export %s=%s"%(k, v) for k, v in env.items()])+os.linesep
+                if len(inputlines)>1:
+                    input+= inputlines[1]
+            with open(script, "w") as scriptfile:
+                scriptfile.write(input)
+            os.chmod(script, self.script_mode)
+            input = None
+            self.log.info("script file available at: %s", script)
+            cmd = cmd + " " + script
+          
+        proc = Subprocess(cmd, shell=True, env=env, stdin=Subprocess.STREAM, stdout=Subprocess.STREAM, stderr=Subprocess.STREAM)
         inbytes = None
         if input:
             inbytes = input.encode()
@@ -241,7 +263,7 @@ class BatchSpawnerBase(Spawner):
         script = yield self._get_batch_script(**subvars)
         self.log.info('Spawner submitting job using ' + cmd)
         self.log.info('Spawner submitted script:\n' + script)
-        out = yield self.run_command(cmd, input=script, env=self.get_env())
+        out = yield self.run_command(cmd, input=script, env=self.get_env(), use_scriptfile=self.use_scriptfile)
         try:
             self.log.info('Job submitted. cmd: ' + cmd + ' output: ' + out)
             self.job_id = self.parse_job_id(out)
@@ -774,5 +796,53 @@ class LsfSpawner(BatchSpawnerBase):
 
         self.log.error("Spawner unable to match host addr in job {0} with status {1}".format(self.job_id, self.job_status))
         return
+
+
+class OARSpawner(UserEnvMixin, BatchSpawnerBase):
+    batch_script = Unicode("""#!/bin/sh
+{% if queue      %}#OAR -q {{queue}}{% endif %}
+{% if runtime    %}#OAR -l walltime={{runtime}}{% endif %}
+{% if memory     %}#OAR -l mem={{memory}}{% endif %}
+{% if nprocs     %}#OAR -l nodes=1:ppn={{nprocs}}{% endif %}
+#OAR -N jupyterhub-singleuser-{{username}}
+{% if keepvars   %}#OAR -v {{keepvars}}{% endif %}
+{% if options    %}#OAR {{options}}{% endif %}
+
+{{prologue}}
+{{cmd}}
+{{epilogue}}
+""").tag(config=True)
+
+    use_scriptfile = True
+    script_home = os.path.join(os.environ.get("HOME", "/tmp"), "oar_jobs")
+    # outputs job id string
+    batch_submit_cmd = Unicode('/usr/bin/oarsub -d {homedir}').tag(config=True)
+    # outputs job data XML string
+    batch_query_cmd = Unicode('/usr/bin/oarstat -J -j {job_id}').tag(config=True)
+    batch_cancel_cmd = Unicode('/usr/bin/oardel {job_id}').tag(config=True)
+
+    def parse_job_id(self, output):
+        self.log.info("In parse_job_id with %s", output) 
+        for line in output.split(os.linesep):
+            if line.startswith("OAR_JOB_ID="):
+                return line.split("=")[1]
+
+    def state_ispending(self):
+        if self.job_status:
+            stats = json.loads(self.job_status).get(self.job_id, {})
+            return stats.get("state") in ("Waiting", "Launching", "toLaunch")
+        return False
+
+    def state_isrunning(self):
+        if self.job_status:
+            stats = json.loads(self.job_status).get(self.job_id, {})
+            return stats.get("state") in ("Running", "Finishing", "Alive") 
+        return False
+
+    def state_gethost(self):
+        if self.job_status:
+            stats = json.loads(self.job_status).get(self.job_id, {})
+            res = stats.get("assigned_network_address", [""])
+            return res[0]
 
 # vim: set ai expandtab softtabstop=4:
