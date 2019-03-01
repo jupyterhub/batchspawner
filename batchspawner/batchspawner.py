@@ -86,10 +86,6 @@ class BatchSpawnerBase(Spawner):
     # override default server ip since batch jobs normally running remotely
     ip = Unicode("0.0.0.0", help="Address for singleuser server to listen at").tag(config=True)
 
-    # use a script to submit to batch queueing system instead of piping it in
-    use_scriptfile = False
-    script_mode = stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH #755 by default
-
     exec_prefix = Unicode('sudo -E -u {username}',
         help="Standard executon prefix (e.g. the default sudo -E -u {username})"
         ).tag(config=True)
@@ -200,22 +196,7 @@ class BatchSpawnerBase(Spawner):
         return ' '.join(self.cmd + self.get_args())
 
     @gen.coroutine
-    def run_command(self, cmd, input=None, env=None, use_scriptfile=False):
-        if use_scriptfile and input:
-            script = tempfile.mkstemp(".sh", "jupyter_%s_"%self.get_req_subvars()["username"], dir=self.script_home, text=True)[1]
-            if env:
-                inputlines = input.split(os.linesep, 1)
-                input = inputlines[0]+os.linesep
-                input+= os.linesep.join(["export %s=%s"%(k, v) for k, v in env.items()])+os.linesep
-                if len(inputlines)>1:
-                    input+= inputlines[1]
-            with open(script, "w") as scriptfile:
-                scriptfile.write(input)
-            os.chmod(script, self.script_mode)
-            input = None
-            self.log.info("script file available at: %s", script)
-            cmd = cmd + " " + script
-          
+    def run_command(self, cmd, input=None, env=None):
         proc = Subprocess(cmd, shell=True, env=env, stdin=Subprocess.STREAM, stdout=Subprocess.STREAM, stderr=Subprocess.STREAM)
         inbytes = None
         if input:
@@ -263,7 +244,7 @@ class BatchSpawnerBase(Spawner):
         script = yield self._get_batch_script(**subvars)
         self.log.info('Spawner submitting job using ' + cmd)
         self.log.info('Spawner submitted script:\n' + script)
-        out = yield self.run_command(cmd, input=script, env=self.get_env(), use_scriptfile=self.use_scriptfile)
+        out = yield self.run_command(cmd, input=script, env=self.get_env())
         try:
             self.log.info('Job submitted. cmd: ' + cmd + ' output: ' + out)
             self.job_id = self.parse_job_id(out)
@@ -800,12 +781,10 @@ class LsfSpawner(BatchSpawnerBase):
 
 class OARSpawner(UserEnvMixin, BatchSpawnerBase):
     batch_script = Unicode("""#!/bin/sh
+#OAR -n jupyterhub-singleuser-{{username}}
+#OAR -l nodes=1{% if nprocs     %}/core={{nprocs}}{% endif %}{% if runtime    %},walltime={{runtime}}{% endif %}
 {% if queue      %}#OAR -q {{queue}}{% endif %}
-{% if runtime    %}#OAR -l walltime={{runtime}}{% endif %}
-{% if memory     %}#OAR -l mem={{memory}}{% endif %}
-{% if nprocs     %}#OAR -l nodes=1:ppn={{nprocs}}{% endif %}
-#OAR -N jupyterhub-singleuser-{{username}}
-{% if keepvars   %}#OAR -v {{keepvars}}{% endif %}
+{% if memory     %}#OAR -p "memnode>={{memory}}"{% endif %}
 {% if options    %}#OAR {{options}}{% endif %}
 
 {{prologue}}
@@ -813,14 +792,68 @@ class OARSpawner(UserEnvMixin, BatchSpawnerBase):
 {{epilogue}}
 """).tag(config=True)
 
-    use_scriptfile = True
+    # use a script to submit to batch queueing system instead of piping it in
+    script_mode = stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH #755 by default
+
     script_home = os.path.join(os.environ.get("HOME", "/tmp"), "oar_jobs")
     # outputs job id string
-    batch_submit_cmd = Unicode('/usr/bin/oarsub -d {homedir}').tag(config=True)
+    batch_submit_cmd = Unicode('/usr/bin/oarsub -d {homedir} -S ').tag(config=True)
     # outputs job data XML string
     batch_query_cmd = Unicode('/usr/bin/oarstat -J -j {job_id}').tag(config=True)
     batch_cancel_cmd = Unicode('/usr/bin/oardel {job_id}').tag(config=True)
 
+    @gen.coroutine
+    def run_command(self, cmd, input=None, env=None):
+        if input: 
+            # Use script file
+            script = tempfile.mkstemp(".sh", "jupyter_%s_"%self.get_req_subvars()["username"], dir=self.script_home, text=True)[1]
+            if env:
+                inputlines = input.split(os.linesep)
+                input = ""
+                for idx, line in enumerate(inputlines):
+                    if line.startswith("#"):
+                        input += line + os.linesep
+                    else:
+                        break
+                input += os.linesep.join(["export %s=%s"%(k, v) for k, v in env.items()]) + os.linesep
+                if len(inputlines) > idx:
+                    input += os.linesep.join(inputlines[idx:])
+            with open(script, "w") as scriptfile:
+                scriptfile.write(input)
+            os.chmod(script, self.script_mode)
+            input = None
+            self.log.info("script file available at: %s", script)
+            cmd = cmd + " " + script
+          
+        proc = Subprocess(cmd, shell=True, env=env, stdin=Subprocess.STREAM, stdout=Subprocess.STREAM, stderr=Subprocess.STREAM)
+        inbytes = None
+        if input:
+            inbytes = input.encode()
+            try:
+                yield proc.stdin.write(inbytes)
+            except StreamClosedError as exp:
+                # Apparently harmless
+                pass
+        proc.stdin.close()
+        out, eout = yield [proc.stdout.read_until_close(),
+                           proc.stderr.read_until_close()]
+        proc.stdout.close()
+        proc.stderr.close()
+        eout = eout.decode().strip()
+        try:
+            err = yield proc.wait_for_exit()
+        except CalledProcessError:
+            self.log.error("Subprocess returned exitcode %s" % proc.returncode)
+            self.log.error('Stdout:')
+            self.log.error(out)
+            self.log.error('Stderr:')
+            self.log.error(eout)
+            raise RuntimeError('{} exit status {}: {}'.format(cmd, proc.returncode, eout))
+        if err != 0:
+            return err # exit error?
+        else:
+            out = out.decode().strip()
+            return out
     def parse_job_id(self, output):
         self.log.info("In parse_job_id with %s", output) 
         for line in output.split(os.linesep):
