@@ -18,7 +18,6 @@ Common attributes of batch submission / resource manager environments will inclu
 import pwd
 import os
 import re
-import tempfile
 import stat
 import json
 
@@ -796,6 +795,8 @@ class OARSpawner(UserEnvMixin, BatchSpawnerBase):
     script_mode = stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH #755 by default
 
     script_home = os.path.join(os.environ.get("HOME", "/tmp"), "oar_jobs")
+    if not os.path.exists(script_home):
+        os.makedirs(script_home)
     # outputs job id string
     batch_submit_cmd = Unicode('/usr/bin/oarsub -d {homedir} -S ').tag(config=True)
     # outputs job data XML string
@@ -806,7 +807,7 @@ class OARSpawner(UserEnvMixin, BatchSpawnerBase):
     def run_command(self, cmd, input=None, env=None):
         if input: 
             # Use script file
-            script = tempfile.mkstemp(".sh", "jupyter_%s_"%self.get_req_subvars()["username"], dir=self.script_home, text=True)[1]
+            script = os.path.join(self.script_home, "jupyter_%s.sh"%self.get_req_subvars()["username"])
             if env:
                 inputlines = input.split(os.linesep)
                 input = ""
