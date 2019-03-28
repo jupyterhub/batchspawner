@@ -165,12 +165,6 @@ class BatchSpawnerBase(Spawner):
     # Will get the raw output of the job status command unless overridden
     job_status = Unicode()
 
-    # Will get the address of the server as reported by job manager
-    current_ip = Unicode()
-
-    # Will get the port of the server as reported by singleserver
-    current_port = Integer()
-
     # Prepare substitution variables for templates using req_xyz traits
     def get_req_subvars(self):
         reqlist = [ t for t in self.trait_names() if t.startswith('req_') ]
@@ -349,6 +343,9 @@ class BatchSpawnerBase(Spawner):
     @gen.coroutine
     def start(self):
         """Start the process"""
+        self.ip = self.traits()['ip'].default_value
+        self.port = self.traits()['port'].default_value
+
         if jupyterhub.version_info >= (0,8) and self.server:
             self.server.port = self.port
 
@@ -375,20 +372,20 @@ class BatchSpawnerBase(Spawner):
                            ' after starting.')
             yield gen.sleep(self.startup_poll_interval)
 
-        self.current_ip = self.state_gethost()
-        while self.current_port == 0:
+        self.ip = self.state_gethost()
+        while self.port == 0:
             yield gen.sleep(self.startup_poll_interval)
 
         if jupyterhub.version_info < (0,7):
             # store on user for pre-jupyterhub-0.7:
-            self.user.server.port = self.current_port
-            self.user.server.ip = self.current_ip
+            self.user.server.port = self.port
+            self.user.server.ip = self.ip
         self.db.commit()
         self.log.info("Notebook server job {0} started at {1}:{2}".format(
-                        self.job_id, self.current_ip, self.current_port)
+                        self.job_id, self.ip, self.port)
             )
 
-        return self.current_ip, self.current_port
+        return self.ip, self.port
 
     @gen.coroutine
     def stop(self, now=False):
@@ -408,7 +405,7 @@ class BatchSpawnerBase(Spawner):
             yield gen.sleep(1.0)
         if self.job_id:
             self.log.warn("Notebook server job {0} at {1}:{2} possibly failed to terminate".format(
-                             self.job_id, self.current_ip, self.port)
+                             self.job_id, self.ip, self.port)
                 )
 
 
