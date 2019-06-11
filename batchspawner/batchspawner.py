@@ -591,8 +591,9 @@ echo "jupyterhub-singleuser ended gracefully"
         ).tag(config=True)
 
     req_srun = Unicode('srun',
-        help="Job step wrapper, default 'srun'.  Set to '' you do not want "
-             "to run in job step (affects environment handling)"
+        help="Set req_srun='' to disable running in job step, and note that "
+             "this affects environment handling.  This is effectively a "
+             "prefix for the singleuser command."
         ).tag(config=True)
 
     req_reservation = Unicode('', \
