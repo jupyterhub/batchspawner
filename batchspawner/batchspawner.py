@@ -74,9 +74,6 @@ class BatchSpawnerBase(Spawner):
         state_gethost
     """
 
-    # override default since will need to set the listening port using the api
-    cmd = Command(['batchspawner-singleuser'], allow_none=True).tag(config=True)
-
     # override default since batch systems typically need longer
     start_timeout = Integer(300).tag(config=True)
 
@@ -184,7 +181,7 @@ class BatchSpawnerBase(Spawner):
         return output
 
     def cmd_formatted_for_batch(self):
-        return ' '.join(self.cmd + self.get_args())
+        return ' '.join(['batchspawner-singleuser'] + self.cmd + self.get_args())
 
     @gen.coroutine
     def run_command(self, cmd, input=None, env=None):
