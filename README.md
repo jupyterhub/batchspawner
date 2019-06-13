@@ -46,7 +46,7 @@ Common attributes of batch submission / resource manager environments will inclu
 
 ### Example
 
-Every effort has been made to accomodate highly diverse systems through configuration
+Every effort has been made to accommodate highly diverse systems through configuration
 only. This example consists of the (lightly edited) configuration used by the author
 to run Jupyter notebooks on an academic supercomputer cluster.
 
@@ -88,7 +88,7 @@ to run Jupyter notebooks on an academic supercomputer cluster.
 
 Unless otherwise stated for a specific spawner, assume that spawners
 *do* evaluate shell environment for users and thus the [security
-requiremnts of JupyterHub security for untrusted
+requirements of JupyterHub security for untrusted
 users](https://jupyterhub.readthedocs.io/en/stable/reference/websecurity.html)
 are not fulfilled because some (most?) spawners *do* start a user
 shell which will execute arbitrary user environment configuration
@@ -173,7 +173,7 @@ Changed
 
 * Update minimum requirements to JupyterHub 0.8.1 and Python 3.4.
 * Update Slurm batch script.  Now, the single-user notebook is run in a job step, with a wrapper of `srun`.  This may need to be removed using `req_srun=''` if you don't want environment variables limited.
-* Pass the environment dictionary to the queue and cancel commands as well.  This is mostly user environment, but may be useful to these commands as well in some cases. #108, #111  If these envioronment variables were used for authentication as an admin, be aware that there are pre-existing security issues because they may be passed to the user via the batch submit command, see #82.
+* Pass the environment dictionary to the queue and cancel commands as well.  This is mostly user environment, but may be useful to these commands as well in some cases. #108, #111  If these environment variables were used for authentication as an admin, be aware that there are pre-existing security issues because they may be passed to the user via the batch submit command, see #82.
 
 Fixed
 
