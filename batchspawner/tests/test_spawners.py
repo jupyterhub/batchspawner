@@ -84,7 +84,7 @@ def check_ip(spawner, value):
     if version_info < (0,7):
         assert spawner.user.server.ip == value
     else:
-        assert spawner.current_ip == value
+        assert spawner.ip == value
 
 def test_spawner_start_stop_poll(db, io_loop):
     spawner = new_spawner(db=db)
