@@ -372,6 +372,10 @@ class BatchSpawnerBase(Spawner):
         self.ip = self.state_gethost()
         while self.port == 0:
             yield gen.sleep(self.startup_poll_interval)
+            # Test framework: For testing, mock_port is set because we
+            # don't actually run the single-user server yet.
+            if hasattr(self, 'mock_port'):
+                self.port = self.mock_port
 
         if jupyterhub.version_info < (0,7):
             # store on user for pre-jupyterhub-0.7:
