@@ -64,7 +64,7 @@ def new_spawner(db, spawner_class=BatchDummy, **kwargs):
         kwargs.setdefault('server', server)
     kwargs.setdefault('hub', hub)
     kwargs.setdefault('user', user)
-    kwargs.setdefault('current_port', testport)
+    kwargs.setdefault('mock_port', testport)
     kwargs.setdefault('INTERRUPT_TIMEOUT', 1)
     kwargs.setdefault('TERM_TIMEOUT', 1)
     kwargs.setdefault('KILL_TIMEOUT', 1)
