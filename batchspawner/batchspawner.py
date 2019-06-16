@@ -430,7 +430,7 @@ class BatchSpawnerBase(Spawner):
                 await yield_({
                     "message": "Unknown status...",
                 })
-            await gen.sleep(.1)
+            await gen.sleep(1)
 
 class BatchSpawnerRegexStates(BatchSpawnerBase):
     """Subclass of BatchSpawnerBase that uses config-supplied regular expressions
