@@ -159,6 +159,12 @@ class BatchSpawnerBase(Spawner):
              "Must include {cmd} which will be replaced with the jupyterhub-singleuser command line."
         ).tag(config=True)
 
+    batchspawner_wrapper = Unicode('batchspawner-singleuser',
+        help="A wrapper which is capable of special batchspawner setup: currently sets the port on "
+             "the remote host.  Not needed to be set under normal circumstances, unless path needs "
+             "specification."
+        ).tag(config=True)
+
     # Raw output of job submission command unless overridden
     job_id = Unicode()
 
@@ -184,7 +190,8 @@ class BatchSpawnerBase(Spawner):
         return output
 
     def cmd_formatted_for_batch(self):
-        return ' '.join(['batchspawner-singleuser'] + self.cmd + self.get_args())
+        """The command which is substituted inside of the batch script"""
+        return ' '.join([self.batchspawner_wrapper] + self.cmd + self.get_args())
 
     async def run_command(self, cmd, input=None, env=None):
         proc = await asyncio.create_subprocess_shell(cmd, env=env,
@@ -229,8 +236,11 @@ class BatchSpawnerBase(Spawner):
 
     async def submit_batch_script(self):
         subvars = self.get_req_subvars()
+        # `cmd` is submitted to the batch system
         cmd = ' '.join((format_template(self.exec_prefix, **subvars),
                         format_template(self.batch_submit_cmd, **subvars)))
+        # `subvars['cmd']` is what is run _inside_ the batch script,
+        # put into the template.
         subvars['cmd'] = self.cmd_formatted_for_batch()
         if hasattr(self, 'user_options'):
             subvars.update(self.user_options)
