@@ -187,6 +187,7 @@ class BatchSpawnerBase(Spawner):
         return output
 
     def cmd_formatted_for_batch(self):
+        """The command which is substituted inside of the batch script"""
         return ' '.join(['batchspawner-singleuser'] + self.cmd + self.get_args())
 
     @gen.coroutine
@@ -230,8 +231,11 @@ class BatchSpawnerBase(Spawner):
     @gen.coroutine
     def submit_batch_script(self):
         subvars = self.get_req_subvars()
+        # `cmd` is submitted to the batch system
         cmd = ' '.join((format_template(self.exec_prefix, **subvars),
                         format_template(self.batch_submit_cmd, **subvars)))
+        # `subvars['cmd']` is what is run _inside_ the batch script,
+        # put into the template.
         subvars['cmd'] = self.cmd_formatted_for_batch()
         if hasattr(self, 'user_options'):
             subvars.update(self.user_options)
