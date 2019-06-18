@@ -64,7 +64,7 @@ def new_spawner(db, spawner_class=BatchDummy, **kwargs):
         kwargs.setdefault('server', server)
     kwargs.setdefault('hub', hub)
     kwargs.setdefault('user', user)
-    kwargs.setdefault('current_port', testport)
+    kwargs.setdefault('mock_port', testport)
     kwargs.setdefault('INTERRUPT_TIMEOUT', 1)
     kwargs.setdefault('TERM_TIMEOUT', 1)
     kwargs.setdefault('KILL_TIMEOUT', 1)
@@ -84,7 +84,7 @@ def check_ip(spawner, value):
     if version_info < (0,7):
         assert spawner.user.server.ip == value
     else:
-        assert spawner.current_ip == value
+        assert spawner.ip == value
 
 def test_spawner_start_stop_poll(db, io_loop):
     spawner = new_spawner(db=db)
@@ -287,7 +287,7 @@ def test_torque(db, io_loop):
         'req_epilogue': 'EPILOGUE',
         }
     batch_script_re_list = [
-        re.compile(r'^PROLOGUE.*^singleuser_command.*^EPILOGUE', re.S|re.M),
+        re.compile(r'^PROLOGUE.*^batchspawner-singleuser singleuser_command.*^EPILOGUE', re.S|re.M),
         re.compile(r'mem=5678'),
         re.compile(r'ppn=5'),
         re.compile(r'^#PBS some_option_asdf', re.M),
@@ -315,7 +315,7 @@ def test_moab(db, io_loop):
         'req_epilogue': 'EPILOGUE',
         }
     batch_script_re_list = [
-        re.compile(r'^PROLOGUE.*^singleuser_command.*^EPILOGUE', re.S|re.M),
+        re.compile(r'^PROLOGUE.*^batchspawner-singleuser singleuser_command.*^EPILOGUE', re.S|re.M),
         re.compile(r'mem=5678'),
         re.compile(r'ppn=5'),
         re.compile(r'^#PBS some_option_asdf', re.M),
@@ -376,7 +376,7 @@ def test_slurm(db, io_loop):
         'req_reservation': 'RES123',
         }
     batch_script_re_list = [
-        re.compile(r'PROLOGUE.*srun singleuser_command.*EPILOGUE', re.S),
+        re.compile(r'PROLOGUE.*srun batchspawner-singleuser singleuser_command.*EPILOGUE', re.S),
         re.compile(r'^#SBATCH \s+ --cpus-per-task=5', re.X|re.M),
         re.compile(r'^#SBATCH \s+ --time=3-05:10:10', re.X|re.M),
         re.compile(r'^#SBATCH \s+ some_option_asdf', re.X|re.M),
@@ -441,7 +441,7 @@ def test_condor(db, io_loop):
         'req_options': 'some_option_asdf',
         }
     batch_script_re_list = [
-        re.compile(r'exec singleuser_command'),
+        re.compile(r'exec batchspawner-singleuser singleuser_command'),
         re.compile(r'RequestCpus = 5'),
         re.compile(r'RequestMemory = 5678'),
         re.compile(r'^some_option_asdf', re.M),
@@ -470,7 +470,7 @@ def test_lfs(db, io_loop):
         'req_epilogue': 'EPILOGUE',
         }
     batch_script_re_list = [
-        re.compile(r'^PROLOGUE.*^singleuser_command.*^EPILOGUE', re.S|re.M),
+        re.compile(r'^PROLOGUE.*^batchspawner-singleuser singleuser_command.*^EPILOGUE', re.S|re.M),
         re.compile(r'#BSUB\s+-q\s+some_queue', re.M),
         ]
     script = [
