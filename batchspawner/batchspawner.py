@@ -159,7 +159,7 @@ class BatchSpawnerBase(Spawner):
              "Must include {cmd} which will be replaced with the jupyterhub-singleuser command line."
         ).tag(config=True)
 
-    batchspawner_wrapper = Unicode('batchspawner-singleuser',
+    batchspawner_singleuser_cmd = Unicode('batchspawner-singleuser',
         help="A wrapper which is capable of special batchspawner setup: currently sets the port on "
              "the remote host.  Not needed to be set under normal circumstances, unless path needs "
              "specification."
@@ -191,7 +191,7 @@ class BatchSpawnerBase(Spawner):
 
     def cmd_formatted_for_batch(self):
         """The command which is substituted inside of the batch script"""
-        return ' '.join([self.batchspawner_wrapper] + self.cmd + self.get_args())
+        return ' '.join([self.batchspawner_singleuser_cmd] + self.cmd + self.get_args())
 
     async def run_command(self, cmd, input=None, env=None):
         proc = await asyncio.create_subprocess_shell(cmd, env=env,
