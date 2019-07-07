@@ -18,6 +18,7 @@ This package formerly included WrapSpawner and ProfilesSpawner, which provide me
 
    ```python
       c = get_config()
+      c.JupyterHub.extra_handlers = [(r"/api/batchspawner", 'batchspawner.api.BatchSpawnerAPIHandler')]
       c.JupyterHub.spawner_class = 'batchspawner.TorqueSpawner'
    ```
 3. Depending on the spawner, additional configuration will likely be needed.
