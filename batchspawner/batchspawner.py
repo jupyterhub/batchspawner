@@ -612,6 +612,8 @@ echo "jupyterhub-singleuser ended gracefully"
     def parse_job_id(self, output):
         # make sure jobid is really a number
         try:
+            # use only last line to circumvent slurm bug
+            output = output.splitlines()[-1]
             id = output.split(';')[0]
             int(id)
         except Exception as e:
