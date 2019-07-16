@@ -1,5 +1,17 @@
 # Notes on specific spawners
 
+**Spawner maintainers**: Included below are "spawner maintainers",
+when available.  There aren't official obligations, but the general
+idea is that you should watch the repository and feel especially
+empowered to comment on issues when you think it might be relevant to
+you (obviously everyone should be, but this is our attempt at even
+more outreach).  You should let us know when we break something and
+provide a diversity of opinions in general.  Submitting PRs and
+testing is nice but not required.
+
+To be listed as a maintainer, just submit an issue or PR adding you,
+and please watch the repository on Github.
+
 ## `TorqueSpawner`
 
 Maintainers:
