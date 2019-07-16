@@ -19,7 +19,7 @@ This package formerly included WrapSpawner and ProfilesSpawner, which provide me
    ```python
       c = get_config()
       c.JupyterHub.spawner_class = 'batchspawner.TorqueSpawner'
-      import batchspawner.api
+      import batchspawner    # Even though not used, needed to register batchspawner interface
    ```
 3. Depending on the spawner, additional configuration will likely be needed.
 
@@ -53,7 +53,7 @@ to run Jupyter notebooks on an academic supercomputer cluster.
 
    ```python
    # Select the Torque backend and increase the timeout since batch jobs may take time to start
-   import batchspawner.api
+   import batchspawner
    c.JupyterHub.spawner_class = 'batchspawner.TorqueSpawner'
    c.Spawner.http_timeout = 120
 
@@ -119,7 +119,7 @@ clusters, as well as an option to run a local notebook directly on the jupyterhu
 
    ```python
    # Same initial setup as the previous example
-   import batchspawner.api
+   import batchspawner
    c.JupyterHub.spawner_class = 'wrapspawner.ProfilesSpawner'
    c.Spawner.http_timeout = 120
    #------------------------------------------------------------------------------
@@ -178,7 +178,7 @@ Added (developer)
 Changed
 
 * PR #58 and #141 changes logic of port selection, so that it is selected *after* the singleuser server starts.  This means that the port number has to be conveyed back to JupyterHub.  This requires the following changes:
-  - `jupyterhub_config.py` *must* explicitely import `batchspawner.api`
+  - `jupyterhub_config.py` *must* explicitely import `batchspawner`
   - Add a new option `batchspawner_singleuser_cmd` which is used as a wrapper in the single-user servers, which conveys the remote port back to JupyterHub.  This is now an integral part of the spawn process.
   - If you have installed with `pip install -e`, you will have to re-install so that the new script `batchspawner-singleuser` is added to `$PATH`.
 * Update minimum requirements to JupyterHub 0.9 and Python 3.5.  #143
