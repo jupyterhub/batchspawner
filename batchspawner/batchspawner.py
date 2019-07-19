@@ -225,7 +225,7 @@ class BatchSpawnerBase(Spawner):
                 self.log.error("Subprocess returned exitcode %s" % err)
                 self.log.error(eout)
                 raise RuntimeError(eout)
-            
+
         out = out.decode().strip()
         return out
 
