@@ -155,6 +155,47 @@ clusters, as well as an option to run a local notebook directly on the jupyterhu
    ```
 
 
+## Debugging batchspawner
+
+Sometimes it can be hard to debug batchspawner, but it's not really
+once you know how the pieces interact.  Check the following places for
+error messages:
+
+* Check the JupyterHub logs for errors.
+
+* Check the JupyterHub logs for the batch script that got submitted
+  and the command used to submit it.  Are these correct?  (Note that
+  there are submission environment variables too, which aren't
+  displayed.)
+
+* At this point, it's a matter of checking the batch system.  Is the
+  job ever scheduled?  Does it run?  Does it succeed?  Check the batch
+  system status and output of the job.  The most comon failure
+  patterns are a) job never starting due to bad scheduler options, b)
+  job waiting in the queue beyond the `start_timeout`, causing
+  JupyterHub to kill the job.
+
+* At this point the job starts.  Does it fail immediately, or before
+  Jupyter starts?  Check the scheduler output files (stdout/stderr of
+  the job), wherever it is stored.  To debug the job script, you can
+  add debugging into the batch script, such as an `env` or `set
+  -x`.
+
+* At this point Jupyter itself starts - check its error messages.  Is
+  it starting with the right options?  Can it communicate with the
+  hub?  At this point there usually isn't anything
+  batchspawner-specific, with the one exception below.  The error log
+  would be in the batch script output (same file as above).  There may
+  also be clues in the JupyterHub logfile.
+
+Common problems:
+
+* Did you `import batchspawner` in the `jupyterhub_config.py` file?
+  This is needed in order to activate the batchspawer API in
+  JupyterHub.
+
+
+
 ## Changelog
 
 ### dev (requires minimum JupyterHub 0.9 and Python 3.5)
