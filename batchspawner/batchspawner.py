@@ -15,9 +15,12 @@ Common attributes of batch submission / resource manager environments will inclu
   * remote execution via submission of templated scripts
   * job names instead of PIDs
 """
+import asyncio
+from async_generator import async_generator, yield_, yield_from_
 import pwd
 import os
 import re
+import sys
 
 import xml.etree.ElementTree as ET
 
@@ -156,6 +159,12 @@ class BatchSpawnerBase(Spawner):
              "Must include {cmd} which will be replaced with the jupyterhub-singleuser command line."
         ).tag(config=True)
 
+    batchspawner_singleuser_cmd = Unicode('batchspawner-singleuser',
+        help="A wrapper which is capable of special batchspawner setup: currently sets the port on "
+             "the remote host.  Not needed to be set under normal circumstances, unless path needs "
+             "specification."
+        ).tag(config=True)
+
     # Raw output of job submission command unless overridden
     job_id = Unicode()
 
@@ -181,58 +190,64 @@ class BatchSpawnerBase(Spawner):
         return output
 
     def cmd_formatted_for_batch(self):
-        return ' '.join(['batchspawner-singleuser'] + self.cmd + self.get_args())
+        """The command which is substituted inside of the batch script"""
+        return ' '.join([self.batchspawner_singleuser_cmd] + self.cmd + self.get_args())
 
-    @gen.coroutine
-    def run_command(self, cmd, input=None, env=None):
-        proc = Subprocess(cmd, shell=True, env=env, stdin=Subprocess.STREAM, stdout=Subprocess.STREAM,stderr=Subprocess.STREAM)
-        inbytes = None
+    async def run_command(self, cmd, input=None, env=None):
+        proc = await asyncio.create_subprocess_shell(cmd, env=env,
+                                                    stdin=asyncio.subprocess.PIPE,
+                                                    stdout=asyncio.subprocess.PIPE,
+                                                    stderr=asyncio.subprocess.PIPE)
+        inbytes=None
+
         if input:
-            inbytes = input.encode()
-            try:
-                yield proc.stdin.write(inbytes)
-            except StreamClosedError as exp:
-                # Apparently harmless
-                pass
-        proc.stdin.close()
-        out, eout = yield [proc.stdout.read_until_close(),
-                           proc.stderr.read_until_close()]
-        proc.stdout.close()
-        proc.stderr.close()
-        eout = eout.decode().strip()
+            inbytes=input.encode()
+
         try:
-            err = yield proc.wait_for_exit()
-        except CalledProcessError:
+            out, eout = await proc.communicate(input=inbytes)
+        except:
+            self.log.debug("Exception raised when trying to run command: %s" % command)
+            proc.kill()
+            self.log.debug("Running command failed done kill")
+            out, eout = await proc.communicate()
+            out = out.decode.strip()
+            eout = eout.decode.strip()
             self.log.error("Subprocess returned exitcode %s" % proc.returncode)
             self.log.error('Stdout:')
             self.log.error(out)
             self.log.error('Stderr:')
             self.log.error(eout)
             raise RuntimeError('{} exit status {}: {}'.format(cmd, proc.returncode, eout))
-        if err != 0:
-            return err # exit error?
         else:
-            out = out.decode().strip()
-            return out
+            eout = eout.decode().strip()
+            err = proc.returncode
+            if err != 0:
+                self.log.error("Subprocess returned exitcode %s" % err)
+                self.log.error(eout)
+                raise RuntimeError(eout)
 
-    @gen.coroutine
-    def _get_batch_script(self, **subvars):
+        out = out.decode().strip()
+        return out
+
+    async def _get_batch_script(self, **subvars):
         """Format batch script from vars"""
-        # Colud be overridden by subclasses, but mainly useful for testing
+        # Could be overridden by subclasses, but mainly useful for testing
         return format_template(self.batch_script, **subvars)
 
-    @gen.coroutine
-    def submit_batch_script(self):
+    async def submit_batch_script(self):
         subvars = self.get_req_subvars()
+        # `cmd` is submitted to the batch system
         cmd = ' '.join((format_template(self.exec_prefix, **subvars),
                         format_template(self.batch_submit_cmd, **subvars)))
+        # `subvars['cmd']` is what is run _inside_ the batch script,
+        # put into the template.
         subvars['cmd'] = self.cmd_formatted_for_batch()
         if hasattr(self, 'user_options'):
             subvars.update(self.user_options)
-        script = yield self._get_batch_script(**subvars)
+        script = await self._get_batch_script(**subvars)
         self.log.info('Spawner submitting job using ' + cmd)
         self.log.info('Spawner submitted script:\n' + script)
-        out = yield self.run_command(cmd, input=script, env=self.get_env())
+        out = await self.run_command(cmd, input=script, env=self.get_env())
         try:
             self.log.info('Job submitted. cmd: ' + cmd + ' output: ' + out)
             self.job_id = self.parse_job_id(out)
@@ -247,8 +262,7 @@ class BatchSpawnerBase(Spawner):
              "and self.job_id as {job_id}."
         ).tag(config=True)
 
-    @gen.coroutine
-    def read_job_state(self):
+    async def read_job_state(self):
         if self.job_id is None or len(self.job_id) == 0:
             # job not running
             self.job_status = ''
@@ -259,7 +273,7 @@ class BatchSpawnerBase(Spawner):
                         format_template(self.batch_query_cmd, **subvars)))
         self.log.debug('Spawner querying job: ' + cmd)
         try:
-            out = yield self.run_command(cmd, env=self.get_env())
+            out = await self.run_command(cmd)
             self.job_status = out
         except Exception as e:
             self.log.error('Error querying job ' + self.job_id)
@@ -271,14 +285,13 @@ class BatchSpawnerBase(Spawner):
         help="Command to stop/cancel a previously submitted job. Formatted like batch_query_cmd."
         ).tag(config=True)
 
-    @gen.coroutine
-    def cancel_batch_job(self):
+    async def cancel_batch_job(self):
         subvars = self.get_req_subvars()
         subvars['job_id'] = self.job_id
         cmd = ' '.join((format_template(self.exec_prefix, **subvars),
                         format_template(self.batch_cancel_cmd, **subvars)))
         self.log.info('Cancelling job ' + self.job_id + ': ' + cmd)
-        yield self.run_command(cmd, env=self.get_env())
+        await self.run_command(cmd)
 
     def load_state(self, state):
         """load job_id from state"""
@@ -317,11 +330,10 @@ class BatchSpawnerBase(Spawner):
         "Return string, hostname or addr of running job, likely by parsing self.job_status"
         raise NotImplementedError("Subclass must provide implementation")
 
-    @gen.coroutine
-    def poll(self):
+    async def poll(self):
         """Poll the process"""
         if self.job_id is not None and len(self.job_id) > 0:
-            yield self.read_job_state()
+            await self.read_job_state()
             if self.state_isrunning() or self.state_ispending():
                 return None
             else:
@@ -337,8 +349,7 @@ class BatchSpawnerBase(Spawner):
         help="Polling interval (seconds) to check job state during startup"
         ).tag(config=True)
 
-    @gen.coroutine
-    def start(self):
+    async def start(self):
         """Start the process"""
         self.ip = self.traits()['ip'].default_value
         self.port = self.traits()['port'].default_value
@@ -346,7 +357,7 @@ class BatchSpawnerBase(Spawner):
         if jupyterhub.version_info >= (0,8) and self.server:
             self.server.port = self.port
 
-        job = yield self.submit_batch_script()
+        job = await self.submit_batch_script()
 
         # We are called with a timeout, and if the timeout expires this function will
         # be interrupted at the next yield, and self.stop() will be called.
@@ -355,7 +366,7 @@ class BatchSpawnerBase(Spawner):
         if len(self.job_id) == 0:
             raise RuntimeError("Jupyter batch job submission failure (no jobid in output)")
         while True:
-            yield self.poll()
+            await self.poll()
             if self.state_isrunning():
                 break
             else:
@@ -367,11 +378,11 @@ class BatchSpawnerBase(Spawner):
                     raise RuntimeError('The Jupyter batch job has disappeared'
                            ' while pending in the queue or died immediately'
                            ' after starting.')
-            yield gen.sleep(self.startup_poll_interval)
+            await gen.sleep(self.startup_poll_interval)
 
         self.ip = self.state_gethost()
         while self.port == 0:
-            yield gen.sleep(self.startup_poll_interval)
+            await gen.sleep(self.startup_poll_interval)
             # Test framework: For testing, mock_port is set because we
             # don't actually run the single-user server yet.
             if hasattr(self, 'mock_port'):
@@ -388,27 +399,43 @@ class BatchSpawnerBase(Spawner):
 
         return self.ip, self.port
 
-    @gen.coroutine
-    def stop(self, now=False):
+    async def stop(self, now=False):
         """Stop the singleuser server job.
 
         Returns immediately after sending job cancellation command if now=True, otherwise
         tries to confirm that job is no longer running."""
 
         self.log.info("Stopping server job " + self.job_id)
-        yield self.cancel_batch_job()
+        await self.cancel_batch_job()
         if now:
             return
         for i in range(10):
-            yield self.poll()
+            await self.poll()
             if not self.state_isrunning():
                 return
-            yield gen.sleep(1.0)
+            await gen.sleep(1.0)
         if self.job_id:
             self.log.warn("Notebook server job {0} at {1}:{2} possibly failed to terminate".format(
                              self.job_id, self.ip, self.port)
                 )
 
+    @async_generator
+    async def progress(self):
+        while True:
+            if self.state_ispending():
+                await yield_({
+                    "message": "Pending in queue...",
+                })
+            elif self.state_isrunning():
+                await yield_({
+                    "message": "Cluster job running... waiting to connect",
+                })
+                return
+            else:
+                await yield_({
+                    "message": "Unknown status...",
+                })
+            await gen.sleep(1)
 
 class BatchSpawnerRegexStates(BatchSpawnerBase):
     """Subclass of BatchSpawnerBase that uses config-supplied regular expressions
@@ -612,6 +639,8 @@ echo "jupyterhub-singleuser ended gracefully"
     def parse_job_id(self, output):
         # make sure jobid is really a number
         try:
+            # use only last line to circumvent slurm bug
+            output = output.splitlines()[-1]
             id = output.split(';')[0]
             int(id)
         except Exception as e:

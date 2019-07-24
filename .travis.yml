@@ -22,6 +22,7 @@ before_install:
 install:
     - pip install --pre -r jupyterhub/dev-requirements.txt
     - pip install --pre -e jupyterhub
+    - pip install --pre -f travis-wheels/wheelhouse -r requirements.txt
 
 script:
     - travis_retry py.test --lf --cov batchspawner batchspawner/tests -v

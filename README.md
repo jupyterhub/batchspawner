@@ -19,6 +19,7 @@ This package formerly included WrapSpawner and ProfilesSpawner, which provide me
    ```python
       c = get_config()
       c.JupyterHub.spawner_class = 'batchspawner.TorqueSpawner'
+      import batchspawner    # Even though not used, needed to register batchspawner interface
    ```
 3. Depending on the spawner, additional configuration will likely be needed.
 
@@ -52,6 +53,7 @@ to run Jupyter notebooks on an academic supercomputer cluster.
 
    ```python
    # Select the Torque backend and increase the timeout since batch jobs may take time to start
+   import batchspawner
    c.JupyterHub.spawner_class = 'batchspawner.TorqueSpawner'
    c.Spawner.http_timeout = 120
 
@@ -117,6 +119,7 @@ clusters, as well as an option to run a local notebook directly on the jupyterhu
 
    ```python
    # Same initial setup as the previous example
+   import batchspawner
    c.JupyterHub.spawner_class = 'wrapspawner.ProfilesSpawner'
    c.Spawner.http_timeout = 120
    #------------------------------------------------------------------------------
@@ -152,9 +155,50 @@ clusters, as well as an option to run a local notebook directly on the jupyterhu
    ```
 
 
+## Debugging batchspawner
+
+Sometimes it can be hard to debug batchspawner, but it's not really
+once you know how the pieces interact.  Check the following places for
+error messages:
+
+* Check the JupyterHub logs for errors.
+
+* Check the JupyterHub logs for the batch script that got submitted
+  and the command used to submit it.  Are these correct?  (Note that
+  there are submission environment variables too, which aren't
+  displayed.)
+
+* At this point, it's a matter of checking the batch system.  Is the
+  job ever scheduled?  Does it run?  Does it succeed?  Check the batch
+  system status and output of the job.  The most comon failure
+  patterns are a) job never starting due to bad scheduler options, b)
+  job waiting in the queue beyond the `start_timeout`, causing
+  JupyterHub to kill the job.
+
+* At this point the job starts.  Does it fail immediately, or before
+  Jupyter starts?  Check the scheduler output files (stdout/stderr of
+  the job), wherever it is stored.  To debug the job script, you can
+  add debugging into the batch script, such as an `env` or `set
+  -x`.
+
+* At this point Jupyter itself starts - check its error messages.  Is
+  it starting with the right options?  Can it communicate with the
+  hub?  At this point there usually isn't anything
+  batchspawner-specific, with the one exception below.  The error log
+  would be in the batch script output (same file as above).  There may
+  also be clues in the JupyterHub logfile.
+
+Common problems:
+
+* Did you `import batchspawner` in the `jupyterhub_config.py` file?
+  This is needed in order to activate the batchspawer API in
+  JupyterHub.
+
+
+
 ## Changelog
 
-### dev (requires minimum JupyterHub 0.7.2 and Python 3.4)
+### dev (requires minimum JupyterHub 0.9 and Python 3.5)
 
 Added (user)
 
@@ -162,18 +206,26 @@ Added (user)
 * Add new option exec_prefix, which defaults to `sudo -E -u {username}`.  This replaces explicit `sudo` in every batch command - changes in local commands may be needed.
 * New option: `req_keepvars_extra`, which allows keeping extra variables in addition to what is defined by JupyterHub itself (addition of variables to keep instead of replacement).  #99
 * Add `req_prologue` and `req_epilogue` options to scripts which are inserted before/after the main jupyterhub-singleuser command, which allow for generic setup/cleanup without overriding the entire script.  #96
-* SlurmSpawner: add the `req_reservation` option.  #
+* SlurmSpawner: add the `req_reservation` option.  #91
+* Add basic support for JupyterHub progress updates, but this is not used much yet.  #86
 
 Added (developer)
 
 * Add many more tests.
 * Add a new page `SPAWNERS.md` which information on specific spawners.  Begin trying to collect a list of spawner-specific contacts.  #97
+* Rename `current_ip` and `current_port` commands to `ip` and `port`.  No user impact.  #139
+* Update to Python 3.5 `async` / `await` syntax to support JupyterHub progress updates.  #90
 
 Changed
 
-* Update minimum requirements to JupyterHub 0.8.1 and Python 3.4.
+* PR #58 and #141 changes logic of port selection, so that it is selected *after* the singleuser server starts.  This means that the port number has to be conveyed back to JupyterHub.  This requires the following changes:
+  - `jupyterhub_config.py` *must* explicitely import `batchspawner`
+  - Add a new option `batchspawner_singleuser_cmd` which is used as a wrapper in the single-user servers, which conveys the remote port back to JupyterHub.  This is now an integral part of the spawn process.
+  - If you have installed with `pip install -e`, you will have to re-install so that the new script `batchspawner-singleuser` is added to `$PATH`.
+* Update minimum requirements to JupyterHub 0.9 and Python 3.5.  #143
 * Update Slurm batch script.  Now, the single-user notebook is run in a job step, with a wrapper of `srun`.  This may need to be removed using `req_srun=''` if you don't want environment variables limited.
 * Pass the environment dictionary to the queue and cancel commands as well.  This is mostly user environment, but may be useful to these commands as well in some cases. #108, #111  If these environment variables were used for authentication as an admin, be aware that there are pre-existing security issues because they may be passed to the user via the batch submit command, see #82.
+
 
 Fixed
 
