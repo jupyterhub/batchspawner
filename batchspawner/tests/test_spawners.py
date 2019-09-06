@@ -65,9 +65,6 @@ def new_spawner(db, spawner_class=BatchDummy, **kwargs):
     kwargs.setdefault('hub', hub)
     kwargs.setdefault('user', user)
     kwargs.setdefault('mock_port', testport)
-    kwargs.setdefault('INTERRUPT_TIMEOUT', 1)
-    kwargs.setdefault('TERM_TIMEOUT', 1)
-    kwargs.setdefault('KILL_TIMEOUT', 1)
     kwargs.setdefault('poll_interval', 1)
     if version_info < (0,8):
         return spawner_class(db=db, **kwargs)
