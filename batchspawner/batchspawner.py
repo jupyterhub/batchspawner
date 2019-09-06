@@ -373,7 +373,7 @@ class BatchSpawnerBase(Spawner):
                 if self.state_ispending():
                     self.log.debug('Job ' + self.job_id + ' still pending')
                 else:
-                    self.log.warn('Job ' + self.job_id + ' neither pending nor running.\n' +
+                    self.log.warning('Job ' + self.job_id + ' neither pending nor running.\n' +
                         self.job_status)
                     raise RuntimeError('The Jupyter batch job has disappeared'
                            ' while pending in the queue or died immediately'
@@ -415,7 +415,7 @@ class BatchSpawnerBase(Spawner):
                 return
             await gen.sleep(1.0)
         if self.job_id:
-            self.log.warn("Notebook server job {0} at {1}:{2} possibly failed to terminate".format(
+            self.log.warning("Notebook server job {0} at {1}:{2} possibly failed to terminate".format(
                              self.job_id, self.ip, self.port)
                 )
 
