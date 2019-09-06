@@ -171,6 +171,10 @@ class BatchSpawnerBase(Spawner):
     # Will get the raw output of the job status command unless overridden
     job_status = Unicode()
 
+    # Delay between sending interrupt and cancel.
+    term_timeout = Integer(5,
+        help="Delay between sending SIGTERM and cancel.  Only relevant if batch_term_cmd is defined.").tag(config=True)
+
     # Prepare substitution variables for templates using req_xyz traits
     def get_req_subvars(self):
         reqlist = [ t for t in self.trait_names() if t.startswith('req_') ]
@@ -285,9 +289,24 @@ class BatchSpawnerBase(Spawner):
         help="Command to stop/cancel a previously submitted job. Formatted like batch_query_cmd."
         ).tag(config=True)
 
+    batch_term_cmd = Unicode('',
+        help="Command to sent SIGTERM to the notebook server before killing.  Only needed if the batch system does not have proper support itself."
+        ).tag(config=True)
+
     async def cancel_batch_job(self):
         subvars = self.get_req_subvars()
         subvars['job_id'] = self.job_id
+
+        # Optional: send a SIGTERM before the cancel
+        if self.batch_term_cmd:
+            cmd = ' '.join(format_template(self.exec_prefix, **subvars),
+                           format_template(self.batch_term_cmd, **subvars))
+            self.log.info('Interrupting job ' + self.job_id + ': ' + cmd)
+            yield run_command(cmd)
+            yield time.sleep(self.term_timeout)
+            if not self.state_isrunning():
+                return
+
         cmd = ' '.join((format_template(self.exec_prefix, **subvars),
                         format_template(self.batch_cancel_cmd, **subvars)))
         self.log.info('Cancelling job ' + self.job_id + ': ' + cmd)
@@ -629,6 +648,7 @@ echo "jupyterhub-singleuser ended gracefully"
     batch_submit_cmd = Unicode('sbatch --parsable').tag(config=True)
     # outputs status and exec node like "RUNNING hostname"
     batch_query_cmd = Unicode("squeue -h -j {job_id} -o '%T %B'").tag(config=True) #
+    #batch_term_cmd = Unicode('scancel --signal TERM --full {job_id}').tag(config=True) # usually not needed
     batch_cancel_cmd = Unicode('scancel {job_id}').tag(config=True)
     # use long-form states: PENDING,  CONFIGURING = pending
     #  RUNNING,  COMPLETING = running
