@@ -61,16 +61,20 @@ def new_spawner(db, spawner_class=BatchDummy, **kwargs):
         hub = Hub()
         user = User(user, {})
         server = Server()
-        kwargs.setdefault('server', server)
+        # Set it after constructions because it isn't a traitlet.
     kwargs.setdefault('hub', hub)
     kwargs.setdefault('user', user)
-    kwargs.setdefault('mock_port', testport)
     kwargs.setdefault('poll_interval', 1)
     if version_info < (0,8):
-        return spawner_class(db=db, **kwargs)
+        spawner = spawner_class(db=db, **kwargs)
+        spawner.mock_port = testport
     else:
         print("JupyterHub >=0.8 detected, using new spawner creation")
-        return user._new_spawner('', spawner_class=spawner_class, **kwargs)
+        # These are not traitlets so we have to set them here
+        spawner = user._new_spawner('', spawner_class=spawner_class, **kwargs)
+        spawner.server = server
+        spawner.mock_port = testport
+    return spawner
 
 def test_stress_submit(db, io_loop):
     for i in range(200):
