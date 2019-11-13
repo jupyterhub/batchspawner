@@ -12,12 +12,12 @@ class BatchSpawnerAPIHandler(APIHandler):
         else:
             # Previous jupyterhub, 0.9.4 and before.
             user = self.get_current_user()
-        data = self.get_json_body()
-        if self.allow_named_servers:
-            server_name = data.pop("server_name", "")
-            spawner = user.spawners[server_name]
-        else:
-            spawner = user.spawner
+        token = self.get_auth_token()
+        spawner = None
+        for s in user.spawners.values():
+            if s.api_token == token:
+                spawner = s
+                break
         for key, value in data.items():
             if hasattr(spawner, key):
                 setattr(spawner, key, value)
