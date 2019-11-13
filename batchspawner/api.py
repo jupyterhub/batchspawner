@@ -18,6 +18,7 @@ class BatchSpawnerAPIHandler(APIHandler):
             if s.api_token == token:
                 spawner = s
                 break
+        data = self.get_json_body()
         for key, value in data.items():
             if hasattr(spawner, key):
                 setattr(spawner, key, value)
