@@ -12,10 +12,16 @@ class BatchSpawnerAPIHandler(APIHandler):
         else:
             # Previous jupyterhub, 0.9.4 and before.
             user = self.get_current_user()
+        token = self.get_auth_token()
+        spawner = None
+        for s in user.spawners.values():
+            if s.api_token == token:
+                spawner = s
+                break
         data = self.get_json_body()
         for key, value in data.items():
-            if hasattr(user.spawner, key):
-                setattr(user.spawner, key, value)
+            if hasattr(spawner, key):
+                setattr(spawner, key, value)
         self.finish(json.dumps({"message": "BatchSpawner data configured"}))
         self.set_status(201)
 
