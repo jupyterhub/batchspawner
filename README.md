@@ -152,7 +152,7 @@ clusters, as well as an option to run a local notebook directly on the jupyterhu
          dict(req_nprocs='2', req_host='labhost.xyz.edu', req_queue='lab',
              req_runtime='8:00:00', req_memory='4gb', state_exechost_exp='')),
       ]
-   c.ProfilesSpawner = '0.0.0.0'
+   c.ProfilesSpawner.ip = '0.0.0.0'
    ```
 
 
