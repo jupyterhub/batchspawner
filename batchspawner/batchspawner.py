@@ -277,7 +277,6 @@ class BatchSpawnerBase(Spawner):
             self.job_status = out
         except Exception as e:
             self.log.error('Error querying job ' + self.job_id)
-            self.job_status = ''
         finally:
             return self.job_status
 
