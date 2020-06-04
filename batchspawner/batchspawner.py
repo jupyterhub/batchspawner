@@ -504,6 +504,8 @@ class TorqueSpawner(BatchSpawnerRegexStates):
 #PBS -v {keepvars}
 #PBS {options}
 
+set -euo pipefail
+
 {prologue}
 {cmd}
 {epilogue}
@@ -542,6 +544,8 @@ class PBSSpawner(TorqueSpawner):
 #PBS -e {{homedir}}/.jupyterhub.pbs.err
 #PBS -v {{keepvars}}
 {% if options %}#PBS {{options}}{% endif %}
+
+set -euo pipefail
 
 {{prologue}}
 {{cmd}}
@@ -597,6 +601,8 @@ class SlurmSpawner(UserEnvMixin,BatchSpawnerRegexStates):
 {% endif %}{% if nprocs     %}#SBATCH --cpus-per-task={{nprocs}}
 {% endif %}{% if reservation%}#SBATCH --reservation={{reservation}}
 {% endif %}{% if options    %}#SBATCH {{options}}{% endif %}
+
+set -euo pipefail
 
 trap 'echo SIGTERM received' TERM
 {{prologue}}
@@ -670,6 +676,8 @@ class GridengineSpawner(BatchSpawnerBase):
 #$ -e {homedir}/.jupyterhub.sge.err
 #$ -v {keepvars}
 #$ {options}
+
+set -euo pipefail
 
 {prologue}
 {cmd}
@@ -760,6 +768,8 @@ class LsfSpawner(BatchSpawnerBase):
 #BSUB -J spawner-jupyterhub
 #BSUB -o {homedir}/.jupyterhub.lsf.out
 #BSUB -e {homedir}/.jupyterhub.lsf.err
+
+set -euo pipefail
 
 {prologue}
 {cmd}
