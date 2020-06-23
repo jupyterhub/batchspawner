@@ -416,7 +416,7 @@ class BatchSpawnerBase(Spawner):
             return
         for i in range(10):
             await self.poll()
-            if not self.state_isrunning():
+            if not self.state_isrunning() and not self.state_isunknown():
                 return
             await gen.sleep(1.0)
         if self.job_id:
