@@ -648,7 +648,7 @@ echo "jupyterhub-singleuser ended gracefully"
     #  RUNNING,  COMPLETING = running
     state_pending_re = Unicode(r'^(?:PENDING|CONFIGURING)').tag(config=True)
     state_running_re = Unicode(r'^(?:RUNNING|COMPLETING)').tag(config=True)
-    state_unknown_re = Unicode(r'^slurm_load_jobs error: (?:Socket timed out on send/recv)').tag(config=True)
+    state_unknown_re = Unicode(r'^slurm_load_jobs error: (?:Socket timed out on send/recv|Unable to contact slurm controller)').tag(config=True)
     state_exechost_re = Unicode(r'\s+((?:[\w_-]+\.?)+)$').tag(config=True)
 
     def parse_job_id(self, output):
