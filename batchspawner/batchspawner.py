@@ -273,8 +273,9 @@ class BatchSpawnerBase(Spawner):
                         format_template(self.batch_query_cmd, **subvars)))
         self.log.debug('Spawner querying job: ' + cmd)
         try:
-            out = await self.run_command(cmd)
-            self.job_status = out
+            self.job_status = await self.run_command(cmd)
+        except RuntimeError as e:
+            self.job_status = e.args[0]
         except Exception as e:
             self.log.error('Error querying job ' + self.job_id)
             self.job_status = ''
@@ -326,6 +327,10 @@ class BatchSpawnerBase(Spawner):
         "Return boolean indicating if job is running, likely by parsing self.job_status"
         raise NotImplementedError("Subclass must provide implementation")
 
+    def state_isunknown(self):
+        "Return boolean indicating if job state retrieval failed because of the resource manager"
+        raise False
+
     def state_gethost(self):
         "Return string, hostname or addr of running job, likely by parsing self.job_status"
         raise NotImplementedError("Subclass must provide implementation")
@@ -334,7 +339,7 @@ class BatchSpawnerBase(Spawner):
         """Poll the process"""
         if self.job_id is not None and len(self.job_id) > 0:
             await self.read_job_state()
-            if self.state_isrunning() or self.state_ispending():
+            if self.state_isrunning() or self.state_ispending() or self.state_isunknown():
                 return None
             else:
                 self.clear_state()
@@ -467,6 +472,8 @@ class BatchSpawnerRegexStates(BatchSpawnerBase):
         If this variable is set, the match object will be expanded using this string
         to obtain the notebook IP.
         See Python docs: re.match.expand""").tag(config=True)
+    state_unknown_re = Unicode('^$',
+        help="Regex that matches job_status if the resource manager is not answering").tag(config=True)
 
     def state_ispending(self):
         assert self.state_pending_re, "Misconfigured: define state_running_re"
@@ -478,6 +485,13 @@ class BatchSpawnerRegexStates(BatchSpawnerBase):
     def state_isrunning(self):
         assert self.state_running_re, "Misconfigured: define state_running_re"
         if self.job_status and re.search(self.state_running_re, self.job_status):
+            return True
+        else:
+            return False
+
+    def state_isunknown(self):
+        assert self.state_unknown_re, "Misconfigured: define state_unknown_re"
+        if self.job_status and re.search(self.state_unknown_re, self.job_status):
             return True
         else:
             return False
@@ -634,6 +648,7 @@ echo "jupyterhub-singleuser ended gracefully"
     #  RUNNING,  COMPLETING = running
     state_pending_re = Unicode(r'^(?:PENDING|CONFIGURING)').tag(config=True)
     state_running_re = Unicode(r'^(?:RUNNING|COMPLETING)').tag(config=True)
+    state_unknown_re = Unicode(r'^slurm_load_jobs error: (?:Socket timed out on send/recv)').tag(config=True)
     state_exechost_re = Unicode(r'\s+((?:[\w_-]+\.?)+)$').tag(config=True)
 
     def parse_job_id(self, output):
