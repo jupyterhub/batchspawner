@@ -24,6 +24,8 @@ import sys
 
 import xml.etree.ElementTree as ET
 
+from enum import Enum
+
 from jinja2 import Template
 
 from tornado import gen
@@ -55,6 +57,11 @@ def format_template(template, *args, **kwargs):
         return Template(template).render(*args, **kwargs)
     return template.format(*args, **kwargs)
 
+class JobStatus(Enum):
+    NOTQUEUED  = 0
+    RUNNING    = 1
+    PENDING    = 2
+    UNKNOWN    = 3
 
 class BatchSpawnerBase(Spawner):
     """Base class for spawners using resource manager batch job submission mechanisms
@@ -264,9 +271,8 @@ class BatchSpawnerBase(Spawner):
 
     async def query_job_status(self):
         if self.job_id is None or len(self.job_id) == 0:
-            # job not running
             self.job_status = ''
-            return self.job_status
+            return JobStatus.NOTQUEUED
         subvars = self.get_req_subvars()
         subvars['job_id'] = self.job_id
         cmd = ' '.join((format_template(self.exec_prefix, **subvars),
@@ -279,8 +285,15 @@ class BatchSpawnerBase(Spawner):
         except Exception as e:
             self.log.error('Error querying job ' + self.job_id)
             self.job_status = ''
-        finally:
-            return self.job_status
+
+        if self.state_isrunning():
+            return JobStatus.RUNNING
+        elif self.state_ispending():
+            return JobStatus.PENDING
+        elif self.state_isunknown():
+            return JobStatus.UNKNOWN
+        else:
+            return JobStatus.NOTQUEUED
 
     batch_cancel_cmd = Unicode('',
         help="Command to stop/cancel a previously submitted job. Formatted like batch_query_cmd."
@@ -337,16 +350,10 @@ class BatchSpawnerBase(Spawner):
 
     async def poll(self):
         """Poll the process"""
-        if self.job_id is not None and len(self.job_id) > 0:
-            await self.query_job_status()
-            if self.state_isrunning() or self.state_ispending() or self.state_isunknown():
-                return None
-            else:
-                self.clear_state()
-                return 1
-
-        if not self.job_id:
-            # no job id means it's not running
+        status = await self.query_job_status()
+        if status in (JobStatus.PENDING, JobStatus.RUNNING, JobStatus.UNKNOWN):
+            return None
+        else:
             self.clear_state()
             return 1
 
@@ -371,18 +378,19 @@ class BatchSpawnerBase(Spawner):
         if len(self.job_id) == 0:
             raise RuntimeError("Jupyter batch job submission failure (no jobid in output)")
         while True:
-            await self.query_job_status()
-            if self.state_isrunning():
+            status = await self.query_job_status()
+            if status == JobStatus.RUNNING:
                 break
+            elif status == JobStatus.PENDING:
+                self.log.debug('Job ' + self.job_id + ' still pending')
+            elif status == JobStatus.UNKNOWN:
+                self.log.debug('Job ' + self.job_id + ' still unknown')
             else:
-                if self.state_ispending():
-                    self.log.debug('Job ' + self.job_id + ' still pending')
-                else:
-                    self.log.warning('Job ' + self.job_id + ' neither pending nor running.\n' +
-                        self.job_status)
-                    raise RuntimeError('The Jupyter batch job has disappeared'
-                           ' while pending in the queue or died immediately'
-                           ' after starting.')
+                self.log.warning('Job ' + self.job_id + ' neither pending nor running.\n' +
+                    self.job_status)
+                raise RuntimeError('The Jupyter batch job has disappeared'
+                        ' while pending in the queue or died immediately'
+                        ' after starting.')
             await gen.sleep(self.startup_poll_interval)
 
         self.ip = self.state_gethost()
@@ -415,8 +423,8 @@ class BatchSpawnerBase(Spawner):
         if now:
             return
         for i in range(10):
-            await self.query_job_status()
-            if not self.state_isrunning() and not self.state_isunknown():
+            status = await self.query_job_status()
+            if not status in (JobStatus.RUNNING, JobStatus.UNKNOWN):
                 return
             await gen.sleep(1.0)
         if self.job_id:
@@ -477,24 +485,15 @@ class BatchSpawnerRegexStates(BatchSpawnerBase):
 
     def state_ispending(self):
         assert self.state_pending_re, "Misconfigured: define state_running_re"
-        if self.job_status and re.search(self.state_pending_re, self.job_status):
-            return True
-        else:
-            return False
+        return self.job_status and re.search(self.state_pending_re, self.job_status)
 
     def state_isrunning(self):
         assert self.state_running_re, "Misconfigured: define state_running_re"
-        if self.job_status and re.search(self.state_running_re, self.job_status):
-            return True
-        else:
-            return False
+        return self.job_status and re.search(self.state_running_re, self.job_status)
 
     def state_isunknown(self):
         assert self.state_unknown_re, "Misconfigured: define state_unknown_re"
-        if self.job_status and re.search(self.state_unknown_re, self.job_status):
-            return True
-        else:
-            return False
+        return self.job_status and re.search(self.state_unknown_re, self.job_status)
 
     def state_gethost(self):
         assert self.state_exechost_re, "Misconfigured: define state_exechost_re"
