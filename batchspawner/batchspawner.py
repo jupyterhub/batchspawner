@@ -371,7 +371,7 @@ class BatchSpawnerBase(Spawner):
         if len(self.job_id) == 0:
             raise RuntimeError("Jupyter batch job submission failure (no jobid in output)")
         while True:
-            await self.poll()
+            await self.query_job_status()
             if self.state_isrunning():
                 break
             else:
@@ -415,7 +415,7 @@ class BatchSpawnerBase(Spawner):
         if now:
             return
         for i in range(10):
-            await self.poll()
+            await self.query_job_status()
             if not self.state_isrunning() and not self.state_isunknown():
                 return
             await gen.sleep(1.0)
