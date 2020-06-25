@@ -256,13 +256,13 @@ class BatchSpawnerBase(Spawner):
             self.job_id = ''
         return self.job_id
 
-    # Override if your batch system needs something more elaborate to read the job status
+    # Override if your batch system needs something more elaborate to query the job status
     batch_query_cmd = Unicode('',
-        help="Command to run to read job status. Formatted using req_xyz traits as {xyz} "
+        help="Command to run to query job status. Formatted using req_xyz traits as {xyz} "
              "and self.job_id as {job_id}."
         ).tag(config=True)
 
-    async def read_job_state(self):
+    async def query_job_status(self):
         if self.job_id is None or len(self.job_id) == 0:
             # job not running
             self.job_status = ''
@@ -338,7 +338,7 @@ class BatchSpawnerBase(Spawner):
     async def poll(self):
         """Poll the process"""
         if self.job_id is not None and len(self.job_id) > 0:
-            await self.read_job_state()
+            await self.query_job_status()
             if self.state_isrunning() or self.state_ispending() or self.state_isunknown():
                 return None
             else:
