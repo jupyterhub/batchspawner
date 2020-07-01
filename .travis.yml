@@ -3,15 +3,17 @@ language: python
 sudo: false
 python:
     - 3.8
-    - 3.7
     - 3.6
-    - 3.5
 env:
     - JHUB_VER=0.9.6
     - JHUB_VER=1.0.0
     - JHUB_VER=1.1.0
 matrix:
     include:
+     - python: 3.5
+       env: JHUB_VER=0.9.6
+     - python: 3.7
+       env: JHUB_VER=1.0.0
      - python: 3.8
        env: JHUB_VER=master
     allow_failures:
