@@ -21,6 +21,7 @@ before_install:
     - pip install --upgrade pip
 install:
     - pip install --pre -r jupyterhub/dev-requirements.txt
+    - pip install --upgrade pytest
     - pip install --pre -e jupyterhub
     - pip install --pre -f travis-wheels/wheelhouse -r requirements.txt
 
