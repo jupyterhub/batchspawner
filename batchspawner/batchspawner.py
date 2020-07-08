@@ -58,7 +58,7 @@ def format_template(template, *args, **kwargs):
     return template.format(*args, **kwargs)
 
 class JobStatus(Enum):
-    NOTQUEUED  = 0
+    NOTFOUND   = 0
     RUNNING    = 1
     PENDING    = 2
     UNKNOWN    = 3
@@ -272,7 +272,7 @@ class BatchSpawnerBase(Spawner):
     async def query_job_status(self):
         if self.job_id is None or len(self.job_id) == 0:
             self.job_status = ''
-            return JobStatus.NOTQUEUED
+            return JobStatus.NOTFOUND
         subvars = self.get_req_subvars()
         subvars['job_id'] = self.job_id
         cmd = ' '.join((format_template(self.exec_prefix, **subvars),
@@ -293,7 +293,7 @@ class BatchSpawnerBase(Spawner):
         elif self.state_isunknown():
             return JobStatus.UNKNOWN
         else:
-            return JobStatus.NOTQUEUED
+            return JobStatus.NOTFOUND
 
     batch_cancel_cmd = Unicode('',
         help="Command to stop/cancel a previously submitted job. Formatted like batch_query_cmd."
