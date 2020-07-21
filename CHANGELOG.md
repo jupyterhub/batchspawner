@@ -1,9 +1,10 @@
 # Changelog
 
-## dev (requires minimum JupyterHub 0.9 and Python 3.5)
+## v1.0 (requires minimum JupyterHub 0.9 and Python 3.5)
 
 Added (user)
 
+* Add support for JupyterHub named servers. #167
 * Add Jinja2 templating as an option for all scripts and commands.  If '{{' or `{%` is used anywhere in the string, it is used as a jinja2 template.
 * Add new option exec_prefix, which defaults to `sudo -E -u {username}`.  This replaces explicit `sudo` in every batch command - changes in local commands may be needed.
 * New option: `req_keepvars_extra`, which allows keeping extra variables in addition to what is defined by JupyterHub itself (addition of variables to keep instead of replacement).  #99
