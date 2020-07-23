@@ -8,6 +8,8 @@ Added (developer)
 
 Changed
 
+* Fail on first error in batch script by setting `set -e` to script templates.  #177
+
 Fixed
 
 
