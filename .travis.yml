@@ -2,15 +2,19 @@
 language: python
 sudo: false
 python:
-    - 3.7
+    - 3.8
     - 3.6
-    - 3.5
 env:
     - JHUB_VER=0.9.6
     - JHUB_VER=1.0.0
+    - JHUB_VER=1.1.0
 matrix:
     include:
+     - python: 3.5
+       env: JHUB_VER=0.9.6
      - python: 3.7
+       env: JHUB_VER=1.0.0
+     - python: 3.8
        env: JHUB_VER=master
     allow_failures:
       - env: JHUB_VER=master
@@ -21,6 +25,7 @@ before_install:
     - pip install --upgrade pip
 install:
     - pip install --pre -r jupyterhub/dev-requirements.txt
+    - pip install --upgrade pytest
     - pip install --pre -e jupyterhub
     - pip install --pre -f travis-wheels/wheelhouse -r requirements.txt
 
