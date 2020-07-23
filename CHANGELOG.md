@@ -1,5 +1,16 @@
 # Changelog
 
+## unreleased changes
+
+Added (user)
+
+Added (developer)
+
+Changed
+
+Fixed
+
+
 ## v1.0 (requires minimum JupyterHub 0.9 and Python 3.5)
 
 Added (user)
