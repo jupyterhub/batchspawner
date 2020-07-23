@@ -724,6 +724,16 @@ set -euo pipefail
         self.log.error("Spawner unable to match host addr in job {0} with status {1}".format(self.job_id, self.job_status))
         return
 
+    def get_env(self):
+        env = super().get_env()
+
+        # SGE relies on environment variables to launch local jobs.  Ensure that these values are included
+        # in the environment used to run the spawner.
+        for key in ['SGE_CELL','SGE_EXECD','SGE_ROOT','SGE_CLUSTER_NAME','SGE_QMASTER_PORT', 'SGE_EXECD_PORT','PATH']:
+            if key in os.environ and key not in env:
+                env[key] = os.environ[key]
+        return env
+
 
 class CondorSpawner(UserEnvMixin,BatchSpawnerRegexStates):
     batch_script = Unicode("""
