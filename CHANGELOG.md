@@ -4,11 +4,13 @@
 
 Added (user)
 
+* PR #170: SlurmSpawner: add `req_gres` to specify `-go-res`.
+
 Added (developer)
 
 Changed
 
-* Fail on first error in batch script by setting `set -e` to script templates.  #177
+* PR #177: Fail on first error in batch script by setting `set -e` to script templates.
 
 Fixed
 
@@ -24,7 +26,6 @@ Added (user)
 * Add `req_prologue` and `req_epilogue` options to scripts which are inserted before/after the main jupyterhub-singleuser command, which allow for generic setup/cleanup without overriding the entire script.  #96
 * SlurmSpawner: add the `req_reservation` option.  #91
 * Add basic support for JupyterHub progress updates, but this is not used much yet.  #86
-# PR #170: SlurmSpawner: add `req_gres` to specify `-go-res`.
 
 Added (developer)
 
