@@ -598,6 +598,7 @@ class SlurmSpawner(UserEnvMixin,BatchSpawnerRegexStates):
 {% if partition  %}#SBATCH --partition={{partition}}
 {% endif %}{% if runtime    %}#SBATCH --time={{runtime}}
 {% endif %}{% if memory     %}#SBATCH --mem={{memory}}
+{% endif %}{% if gres       %}#SBATCH --gres={{gres}}
 {% endif %}{% if nprocs     %}#SBATCH --cpus-per-task={{nprocs}}
 {% endif %}{% if reservation%}#SBATCH --reservation={{reservation}}
 {% endif %}{% if options    %}#SBATCH {{options}}{% endif %}
@@ -630,6 +631,10 @@ echo "jupyterhub-singleuser ended gracefully"
     req_reservation = Unicode('', \
         help="Reservation name to submit to resource manager"
         ).tag(config=True)
+
+    req_gres = Unicode('', \
+        help="Additional resources (e.g. GPUs) requested"
+    ).tag(config=True)
 
     # outputs line like "Submitted batch job 209"
     batch_submit_cmd = Unicode('sbatch --parsable').tag(config=True)

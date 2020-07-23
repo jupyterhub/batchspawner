@@ -375,6 +375,7 @@ def test_slurm(db, io_loop):
         'req_prologue': 'PROLOGUE',
         'req_epilogue': 'EPILOGUE',
         'req_reservation': 'RES123',
+        'req_gres': 'GRES123',
         }
     batch_script_re_list = [
         re.compile(r'PROLOGUE.*srun batchspawner-singleuser singleuser_command.*EPILOGUE', re.S),
@@ -382,6 +383,7 @@ def test_slurm(db, io_loop):
         re.compile(r'^#SBATCH \s+ --time=3-05:10:10', re.X|re.M),
         re.compile(r'^#SBATCH \s+ some_option_asdf', re.X|re.M),
         re.compile(r'^#SBATCH \s+ --reservation=RES123', re.X|re.M),
+        re.compile(r'^#SBATCH \s+ --gres=GRES123', re.X|re.M),
         ]
     from .. import SlurmSpawner
     run_spawner_script(db, io_loop, SlurmSpawner, normal_slurm_script,
