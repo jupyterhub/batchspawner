@@ -5,6 +5,7 @@
 Added (user)
 
 * PR #170: SlurmSpawner: add `req_gres` to specify `-go-res`.
+* PR #137: GridEngineSpawner: spawner will now add the following system environment values to the spawner environment, in accordance with the Univa Admin Guide: `SGE_CELL`, `SGE_EXECD`, `SGE_ROOT`, `SGE_CLUSTER_NAME`, `SGE_QMASTER_PORT`, `SGE_EXECD_PORT`, `PATH`
 
 Added (developer)
 
