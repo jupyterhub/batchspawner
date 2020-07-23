@@ -11,6 +11,7 @@ Added (developer)
 Changed
 
 * PR #177: Fail on first error in batch script by setting `set -e` to script templates.
+* PR #165: SlurmSpawner: Update template to use `--chdir` instead of `--workdir`. Users of Slurm older than 17.11 may need to revert this locally.
 
 Fixed
 
