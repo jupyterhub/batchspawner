@@ -282,6 +282,7 @@ class BatchSpawnerBase(Spawner):
         try:
             self.job_status = await self.run_command(cmd)
         except RuntimeError as e:
+            # e.args[0] is stderr from the process
             self.job_status = e.args[0]
         except Exception as e:
             self.log.error('Error querying job ' + self.job_id)
@@ -343,7 +344,7 @@ class BatchSpawnerBase(Spawner):
 
     def state_isunknown(self):
         "Return boolean indicating if job state retrieval failed because of the resource manager"
-        raise False
+        return None
 
     def state_gethost(self):
         "Return string, hostname or addr of running job, likely by parsing self.job_status"
@@ -425,7 +426,7 @@ class BatchSpawnerBase(Spawner):
             return
         for i in range(10):
             status = await self.query_job_status()
-            if not status in (JobStatus.RUNNING, JobStatus.UNKNOWN):
+            if status not in (JobStatus.RUNNING, JobStatus.UNKNOWN):
                 return
             await gen.sleep(1.0)
         if self.job_id:
@@ -481,8 +482,9 @@ class BatchSpawnerRegexStates(BatchSpawnerBase):
         If this variable is set, the match object will be expanded using this string
         to obtain the notebook IP.
         See Python docs: re.match.expand""").tag(config=True)
-    state_unknown_re = Unicode('^$',
-        help="Regex that matches job_status if the resource manager is not answering").tag(config=True)
+    state_unknown_re = Unicode('',
+        help="Regex that matches job_status if the resource manager is not answering."
+             "Blank indicates not used.").tag(config=True)
 
     def state_ispending(self):
         assert self.state_pending_re, "Misconfigured: define state_running_re"
@@ -493,8 +495,9 @@ class BatchSpawnerRegexStates(BatchSpawnerBase):
         return self.job_status and re.search(self.state_running_re, self.job_status)
 
     def state_isunknown(self):
-        assert self.state_unknown_re, "Misconfigured: define state_unknown_re"
-        return self.job_status and re.search(self.state_unknown_re, self.job_status)
+        # Blank means "not set" and this function always returns None.
+        if self.state_unknown_re:
+            return self.job_status and re.search(self.state_unknown_re, self.job_status)
 
     def state_gethost(self):
         assert self.state_exechost_re, "Misconfigured: define state_exechost_re"
