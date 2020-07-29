@@ -27,6 +27,7 @@ Changed
 * Update minimum requirements to JupyterHub 0.9 and Python 3.5.  #143
 * Update Slurm batch script.  Now, the single-user notebook is run in a job step, with a wrapper of `srun`.  This may need to be removed using `req_srun=''` if you don't want environment variables limited.
 * Pass the environment dictionary to the queue and cancel commands as well.  This is mostly user environment, but may be useful to these commands as well in some cases. #108, #111  If these environment variables were used for authentication as an admin, be aware that there are pre-existing security issues because they may be passed to the user via the batch submit command, see #82.
+* SlurmSpawner `--workdir` changed to `--chdir` (requires Slurm 17.11).  #165
 
 
 Fixed
