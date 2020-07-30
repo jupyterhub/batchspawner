@@ -390,6 +390,7 @@ class BatchSpawnerBase(Spawner):
             else:
                 self.log.warning('Job ' + self.job_id + ' neither pending nor running.\n' +
                     self.job_status)
+                self.clear_state()
                 raise RuntimeError('The Jupyter batch job has disappeared'
                         ' while pending in the queue or died immediately'
                         ' after starting.')
