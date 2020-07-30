@@ -425,6 +425,7 @@ def test_slurm(db, io_loop):
 normal_slurm_script = [
         (re.compile(r'sudo.*sbatch'),   str(testjob)),
         (re.compile(r'sudo.*squeue'),   'PENDING '),          # pending
+        (re.compile(r'sudo.*squeue'),   'slurm_load_jobs error: Unable to contact slurm controller'), # unknown
         (re.compile(r'sudo.*squeue'),   'RUNNING '+testhost), # running
         (re.compile(r'sudo.*squeue'),   'RUNNING '+testhost),
         (re.compile(r'sudo.*scancel'),  'STOP'),
