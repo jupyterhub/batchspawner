@@ -2,7 +2,7 @@
 
 import re
 from unittest import mock
-from .. import BatchSpawnerRegexStates
+from .. import BatchSpawnerRegexStates, JobStatus
 from traitlets import Unicode
 import time
 import pytest
@@ -135,14 +135,31 @@ def test_submit_failure(db, io_loop):
     assert spawner.job_id == ''
     assert spawner.job_status == ''
 
-def test_pending_fails(db, io_loop):
+def test_submit_pending_fails(db, io_loop):
+    """Submission works, but the batch query command immediately fails"""
     spawner = new_spawner(db=db)
     assert spawner.get_state() == {}
     spawner.batch_query_cmd = 'echo xyz'
     with pytest.raises(RuntimeError) as e_info:
         io_loop.run_sync(spawner.start, timeout=30)
+    status = io_loop.run_sync(spawner.query_job_status, timeout=30)
+    assert status == JobStatus.NOTFOUND
     assert spawner.job_id == ''
     assert spawner.job_status == ''
+
+def test_poll_fails(db, io_loop):
+    """Submission works, but a later .poll() fails"""
+    spawner = new_spawner(db=db)
+    assert spawner.get_state() == {}
+    # The start is successful:
+    io_loop.run_sync(spawner.start, timeout=30)
+    spawner.batch_query_cmd = 'echo xyz'
+    # Now, the poll fails:
+    io_loop.run_sync(spawner.poll, timeout=30)
+    # .poll() will run self.clear_state() if it's not found:
+    assert spawner.job_id == ''
+    assert spawner.job_status == ''
+
 
 def test_templates(db, io_loop):
     """Test templates in the run_command commands"""
