@@ -76,6 +76,7 @@ def new_spawner(db, spawner_class=BatchDummy, **kwargs):
         spawner.mock_port = testport
     return spawner
 
+@pytest.mark.slow
 def test_stress_submit(db, io_loop):
     for i in range(200):
         time.sleep(0.01)
