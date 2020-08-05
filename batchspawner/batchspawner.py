@@ -504,7 +504,7 @@ class TorqueSpawner(BatchSpawnerRegexStates):
 #PBS -v {keepvars}
 #PBS {options}
 
-set -euo pipefail
+set -eu
 
 {prologue}
 {cmd}
@@ -545,7 +545,7 @@ class PBSSpawner(TorqueSpawner):
 #PBS -v {{keepvars}}
 {% if options %}#PBS {{options}}{% endif %}
 
-set -euo pipefail
+set -eu
 
 {{prologue}}
 {{cmd}}
@@ -784,7 +784,7 @@ class LsfSpawner(BatchSpawnerBase):
 #BSUB -o {homedir}/.jupyterhub.lsf.out
 #BSUB -e {homedir}/.jupyterhub.lsf.err
 
-set -euo pipefail
+set -eu
 
 {prologue}
 {cmd}
