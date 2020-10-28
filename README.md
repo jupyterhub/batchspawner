@@ -1,6 +1,6 @@
 # batchspawner for Jupyterhub
 
-[![Build Status](https://img.shields.io/travis/com/jupyterhub/batchspawner?logo=travis)](https://travis-ci.org/jupyterhub/batchspawner)
+[![Build Status](https://img.shields.io/travis/com/jupyterhub/batchspawner?logo=travis)](https://travis-ci.com/jupyterhub/batchspawner)
 
 This is a custom spawner for [Jupyterhub](https://jupyterhub.readthedocs.io/) that is designed for installations on clusters using batch scheduling software.
 
