@@ -98,6 +98,10 @@ shell which will execute arbitrary user environment configuration
 access to their own cluster user account.  This is something which we
 are working on.
 
+The `admin_environment` option claims to pass environment only to the
+batch spawners, and not the user servers.  This relies on each spawner
+handling environment correctly, and this is *not* checked so you
+should *not* rely on this yet.
 
 ## Provide different configurations of BatchSpawner
 

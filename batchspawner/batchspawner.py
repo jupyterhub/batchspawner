@@ -143,15 +143,32 @@ class BatchSpawnerBase(Spawner):
     def _req_homedir_default(self):
         return pwd.getpwnam(self.user.name).pw_dir
 
-    req_keepvars = Unicode()
-    @default('req_keepvars')
-    def _req_keepvars_default(self):
-        return ','.join(self.get_env().keys())
+    req_keepvars_default = Unicode(
+        help="All environment variables to pass to the spawner.  This is set "
+             "to a default by JupyterHub, and if you change this list "
+             "the previous ones are _not_ included and your submissions will "
+             "break unless you re-add necessary variables.  Consider "
+             "req_keepvars for most use cases, don't edit this under normal "
+             "use.").tag(config=True)
 
-    req_keepvars_extra = Unicode(
+    @default('req_keepvarsdefault')
+    def _req_keepvars_default_default(self):
+        return ','.join(super(BatchSpawnerBase, self).get_env().keys())
+
+    req_keepvars = Unicode(
         help="Extra environment variables which should be configured, "
               "added to the defaults in keepvars, "
-              "comma separated list.")
+              "comma separated list.").tag(config=True)
+
+    admin_environment = Unicode(
+        help="Comma-separated list of environment variables to be passed to "
+             "the batch submit/cancel commands, but _not_ to the batch script "
+             "via --export.  This could be used, for example, to authenticate "
+             "the submit command as an admin user so that it can submit jobs "
+             "as another user.  These are _not_ included in an "
+             "--export={keepvars} type line in the batch script, but you "
+             "should check that your batch system actually does the right "
+             "thing here.").tag(config=True)
 
     batch_script = Unicode('',
         help="Template for job submission script. Traits on this class named like req_xyz "
@@ -177,8 +194,13 @@ class BatchSpawnerBase(Spawner):
         subvars = {}
         for t in reqlist:
             subvars[t[4:]] = getattr(self, t)
-        if subvars.get('keepvars_extra'):
-            subvars['keepvars'] += ',' + subvars['keepvars_extra']
+        # 'keepvars' is special: 'keepvars' goes through as the
+        # variable, but 'keepvars_default' is prepended to it.
+        # 'keepvars_default' is JH-required stuff so you have to try
+        # extra hard to override it.
+        if subvars.get('keepvars'):
+            subvars['keepvars_default'] += ',' + subvars['keepvars']
+        subvars['keepvars'] = subvars['keepvars_default']
         return subvars
 
     batch_submit_cmd = Unicode('',
@@ -192,6 +214,37 @@ class BatchSpawnerBase(Spawner):
     def cmd_formatted_for_batch(self):
         """The command which is substituted inside of the batch script"""
         return ' '.join([self.batchspawner_singleuser_cmd] + self.cmd + self.get_args())
+
+    def get_env(self):
+        """Get the env dict from JH, adding req_keepvars options
+
+        get_env() returns the variables given by JH, but not anything
+        specified by req_keepvars since that's our creation.  Add those
+        (from the JH environment) to the environment passed to the batch
+        start/stop/cancel/etc commands.
+        """
+        env = super(BatchSpawnerBase, self).get_env()
+        for k in self.req_keepvars.split(',') + self.req_keepvars_default.split(','):
+            if k in os.environ:
+                env[k] = os.environ[k]
+        return env
+
+    def get_admin_env(self):
+        """Get the environment passed to the batch submit/cancel/etc commands.
+
+        This contains all of the output from self.get_env(), plus any
+        variables defined in self.admin_environment.  In fact, only this
+        command is used to pass to batch commands, and the only use of
+        self.get_env() is producing the list of variables to be
+        --export='ed to.  Everything in get_env *must* also be in here
+        or else it won't be used.
+        """
+        env = self.get_env()
+        if self.admin_environment:
+            for key in self.admin_environment.split(','):
+                if key in os.environ and key not in env:
+                    env[key] = os.environ[key]
+        return env
 
     async def run_command(self, cmd, input=None, env=None):
         proc = await asyncio.create_subprocess_shell(cmd, env=env,
@@ -247,7 +300,7 @@ class BatchSpawnerBase(Spawner):
         script = await self._get_batch_script(**subvars)
         self.log.info('Spawner submitting job using ' + cmd)
         self.log.info('Spawner submitted script:\n' + script)
-        out = await self.run_command(cmd, input=script, env=self.get_env())
+        out = await self.run_command(cmd, input=script, env=self.get_admin_env())
         try:
             self.log.info('Job submitted. cmd: ' + cmd + ' output: ' + out)
             self.job_id = self.parse_job_id(out)
@@ -273,7 +326,7 @@ class BatchSpawnerBase(Spawner):
                         format_template(self.batch_query_cmd, **subvars)))
         self.log.debug('Spawner querying job: ' + cmd)
         try:
-            out = await self.run_command(cmd)
+            out = await self.run_command(cmd, env=self.get_admin_env())
             self.job_status = out
         except Exception as e:
             self.log.error('Error querying job ' + self.job_id)
@@ -291,7 +344,7 @@ class BatchSpawnerBase(Spawner):
         cmd = ' '.join((format_template(self.exec_prefix, **subvars),
                         format_template(self.batch_cancel_cmd, **subvars)))
         self.log.info('Cancelling job ' + self.job_id + ': ' + cmd)
-        await self.run_command(cmd)
+        await self.run_command(cmd, env=self.get_admin_env())
 
     def load_state(self, state):
         """load job_id from state"""

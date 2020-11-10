@@ -34,6 +34,8 @@ environment to be used, set `req_srun=''`.  However, this is not
 perfect: there is still a bash shell begun as the user which could run
 arbitrary startup, define shell aliases for `srun`, etc.
 
+`admin_environment` does work with SlurmSpawner.
+
 Use of `srun` is required to gracefully terminate.
 
 
