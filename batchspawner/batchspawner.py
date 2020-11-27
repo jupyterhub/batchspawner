@@ -206,18 +206,25 @@ class BatchSpawnerBase(Spawner):
         try:
             out, eout = await proc.communicate(input=inbytes)
         except:
-            self.log.debug("Exception raised when trying to run command: %s" % command)
+            self.log.debug("Exception raised when trying to run command: %s" % cmd)
             proc.kill()
-            self.log.debug("Running command failed done kill")
-            out, eout = await proc.communicate()
-            out = out.decode.strip()
-            eout = eout.decode.strip()
-            self.log.error("Subprocess returned exitcode %s" % proc.returncode)
-            self.log.error('Stdout:')
-            self.log.error(out)
-            self.log.error('Stderr:')
-            self.log.error(eout)
-            raise RuntimeError('{} exit status {}: {}'.format(cmd, proc.returncode, eout))
+            self.log.debug("Running command failed, killed process.")
+            try:
+                out, eout = await asyncio.wait_for(proc.communicate(), timeout=2)
+                out = out.decode().strip()
+                eout = eout.decode().strip()
+                self.log.error("Subprocess returned exitcode %s" % proc.returncode)
+                self.log.error('Stdout:')
+                self.log.error(out)
+                self.log.error('Stderr:')
+                self.log.error(eout)
+                raise RuntimeError('{} exit status {}: {}'.format(cmd, proc.returncode, eout))
+            except asyncio.TimeoutError:
+                self.log.error('Encountered timeout trying to clean up command, process probably killed already: %s' % cmd)
+                return ""
+            except:
+                self.log.error('Encountered exception trying to clean up command: %s' % cmd)
+                raise
         else:
             eout = eout.decode().strip()
             err = proc.returncode
