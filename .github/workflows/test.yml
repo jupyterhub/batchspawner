@@ -1,0 +1,51 @@
+
+name: Python package
+
+on: [push, pull_request]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-20.04
+    continue-on-error: ${{ matrix.allow_failure }}
+    strategy:
+      matrix:
+        python-version:
+          - '3.5'
+          - '3.9'
+        JHUB_VER:
+          - '0.9.6'
+          - '1.0.0'
+          - '1.1.0'
+          - '1.2.0'
+        allow_failure: [false]
+        include:
+          - JHUB_VER: 'master'
+            python-version: '3.9'
+            allow_failure: true
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install pytest
+        pip install -r requirements.txt
+    - name: Install nodejs dependencies
+      run: |
+        sudo npm install -g configurable-http-proxy
+    - name: install JupyterHub
+      run: |
+        git clone --quiet --branch ${{ matrix.JHUB_VER }} https://github.com/jupyterhub/jupyterhub.git jupyterhub
+        pip install --pre -r jupyterhub/dev-requirements.txt
+        pip install --upgrade pytest
+        pip install --pre -e jupyterhub
+
+    - name: pytest
+      run: |
+        pytest --lf --cov batchspawner batchspawner/tests -v
