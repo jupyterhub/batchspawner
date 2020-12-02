@@ -24,6 +24,8 @@ import sys
 
 import xml.etree.ElementTree as ET
 
+from enum import Enum
+
 from jinja2 import Template
 
 from tornado import gen
@@ -55,6 +57,11 @@ def format_template(template, *args, **kwargs):
         return Template(template).render(*args, **kwargs)
     return template.format(*args, **kwargs)
 
+class JobStatus(Enum):
+    NOTFOUND   = 0
+    RUNNING    = 1
+    PENDING    = 2
+    UNKNOWN    = 3
 
 class BatchSpawnerBase(Spawner):
     """Base class for spawners using resource manager batch job submission mechanisms
@@ -256,30 +263,39 @@ class BatchSpawnerBase(Spawner):
             self.job_id = ''
         return self.job_id
 
-    # Override if your batch system needs something more elaborate to read the job status
+    # Override if your batch system needs something more elaborate to query the job status
     batch_query_cmd = Unicode('',
-        help="Command to run to read job status. Formatted using req_xyz traits as {xyz} "
+        help="Command to run to query job status. Formatted using req_xyz traits as {xyz} "
              "and self.job_id as {job_id}."
         ).tag(config=True)
 
-    async def read_job_state(self):
+    async def query_job_status(self):
+        """Check job status, return JobStatus object."""
         if self.job_id is None or len(self.job_id) == 0:
-            # job not running
             self.job_status = ''
-            return self.job_status
+            return JobStatus.NOTFOUND
         subvars = self.get_req_subvars()
         subvars['job_id'] = self.job_id
         cmd = ' '.join((format_template(self.exec_prefix, **subvars),
                         format_template(self.batch_query_cmd, **subvars)))
         self.log.debug('Spawner querying job: ' + cmd)
         try:
-            out = await self.run_command(cmd)
-            self.job_status = out
+            self.job_status = await self.run_command(cmd)
+        except RuntimeError as e:
+            # e.args[0] is stderr from the process
+            self.job_status = e.args[0]
         except Exception as e:
             self.log.error('Error querying job ' + self.job_id)
             self.job_status = ''
-        finally:
-            return self.job_status
+
+        if self.state_isrunning():
+            return JobStatus.RUNNING
+        elif self.state_ispending():
+            return JobStatus.PENDING
+        elif self.state_isunknown():
+            return JobStatus.UNKNOWN
+        else:
+            return JobStatus.NOTFOUND
 
     batch_cancel_cmd = Unicode('',
         help="Command to stop/cancel a previously submitted job. Formatted like batch_query_cmd."
@@ -326,22 +342,20 @@ class BatchSpawnerBase(Spawner):
         "Return boolean indicating if job is running, likely by parsing self.job_status"
         raise NotImplementedError("Subclass must provide implementation")
 
+    def state_isunknown(self):
+        "Return boolean indicating if job state retrieval failed because of the resource manager"
+        return None
+
     def state_gethost(self):
         "Return string, hostname or addr of running job, likely by parsing self.job_status"
         raise NotImplementedError("Subclass must provide implementation")
 
     async def poll(self):
         """Poll the process"""
-        if self.job_id is not None and len(self.job_id) > 0:
-            await self.read_job_state()
-            if self.state_isrunning() or self.state_ispending():
-                return None
-            else:
-                self.clear_state()
-                return 1
-
-        if not self.job_id:
-            # no job id means it's not running
+        status = await self.query_job_status()
+        if status in (JobStatus.PENDING, JobStatus.RUNNING, JobStatus.UNKNOWN):
+            return None
+        else:
             self.clear_state()
             return 1
 
@@ -366,18 +380,20 @@ class BatchSpawnerBase(Spawner):
         if len(self.job_id) == 0:
             raise RuntimeError("Jupyter batch job submission failure (no jobid in output)")
         while True:
-            await self.poll()
-            if self.state_isrunning():
+            status = await self.query_job_status()
+            if status == JobStatus.RUNNING:
                 break
+            elif status == JobStatus.PENDING:
+                self.log.debug('Job ' + self.job_id + ' still pending')
+            elif status == JobStatus.UNKNOWN:
+                self.log.debug('Job ' + self.job_id + ' still unknown')
             else:
-                if self.state_ispending():
-                    self.log.debug('Job ' + self.job_id + ' still pending')
-                else:
-                    self.log.warning('Job ' + self.job_id + ' neither pending nor running.\n' +
-                        self.job_status)
-                    raise RuntimeError('The Jupyter batch job has disappeared'
-                           ' while pending in the queue or died immediately'
-                           ' after starting.')
+                self.log.warning('Job ' + self.job_id + ' neither pending nor running.\n' +
+                    self.job_status)
+                self.clear_state()
+                raise RuntimeError('The Jupyter batch job has disappeared'
+                        ' while pending in the queue or died immediately'
+                        ' after starting.')
             await gen.sleep(self.startup_poll_interval)
 
         self.ip = self.state_gethost()
@@ -410,8 +426,8 @@ class BatchSpawnerBase(Spawner):
         if now:
             return
         for i in range(10):
-            await self.poll()
-            if not self.state_isrunning():
+            status = await self.query_job_status()
+            if status not in (JobStatus.RUNNING, JobStatus.UNKNOWN):
                 return
             await gen.sleep(1.0)
         if self.job_id:
@@ -467,20 +483,22 @@ class BatchSpawnerRegexStates(BatchSpawnerBase):
         If this variable is set, the match object will be expanded using this string
         to obtain the notebook IP.
         See Python docs: re.match.expand""").tag(config=True)
+    state_unknown_re = Unicode('',
+        help="Regex that matches job_status if the resource manager is not answering."
+             "Blank indicates not used.").tag(config=True)
 
     def state_ispending(self):
         assert self.state_pending_re, "Misconfigured: define state_running_re"
-        if self.job_status and re.search(self.state_pending_re, self.job_status):
-            return True
-        else:
-            return False
+        return self.job_status and re.search(self.state_pending_re, self.job_status)
 
     def state_isrunning(self):
         assert self.state_running_re, "Misconfigured: define state_running_re"
-        if self.job_status and re.search(self.state_running_re, self.job_status):
-            return True
-        else:
-            return False
+        return self.job_status and re.search(self.state_running_re, self.job_status)
+
+    def state_isunknown(self):
+        # Blank means "not set" and this function always returns None.
+        if self.state_unknown_re:
+            return self.job_status and re.search(self.state_unknown_re, self.job_status)
 
     def state_gethost(self):
         assert self.state_exechost_re, "Misconfigured: define state_exechost_re"
@@ -645,6 +663,7 @@ echo "jupyterhub-singleuser ended gracefully"
     #  RUNNING,  COMPLETING = running
     state_pending_re = Unicode(r'^(?:PENDING|CONFIGURING)').tag(config=True)
     state_running_re = Unicode(r'^(?:RUNNING|COMPLETING)').tag(config=True)
+    state_unknown_re = Unicode(r'^slurm_load_jobs error: (?:Socket timed out on send/recv|Unable to contact slurm controller)').tag(config=True)
     state_exechost_re = Unicode(r'\s+((?:[\w_-]+\.?)+)$').tag(config=True)
 
     def parse_job_id(self, output):

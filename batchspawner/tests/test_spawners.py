@@ -2,7 +2,7 @@
 
 import re
 from unittest import mock
-from .. import BatchSpawnerRegexStates
+from .. import BatchSpawnerRegexStates, JobStatus
 from traitlets import Unicode
 import time
 import pytest
@@ -28,6 +28,7 @@ class BatchDummy(BatchSpawnerRegexStates):
     state_pending_re = Unicode('PEND')
     state_running_re = Unicode('RUN')
     state_exechost_re = Unicode('RUN (.*)$')
+    state_unknown_re = Unicode('UNKNOWN')
 
     cmd_expectlist = None
     out_expectlist = None
@@ -76,6 +77,7 @@ def new_spawner(db, spawner_class=BatchDummy, **kwargs):
         spawner.mock_port = testport
     return spawner
 
+@pytest.mark.slow
 def test_stress_submit(db, io_loop):
     for i in range(200):
         time.sleep(0.01)
@@ -134,14 +136,45 @@ def test_submit_failure(db, io_loop):
     assert spawner.job_id == ''
     assert spawner.job_status == ''
 
-def test_pending_fails(db, io_loop):
+def test_submit_pending_fails(db, io_loop):
+    """Submission works, but the batch query command immediately fails"""
     spawner = new_spawner(db=db)
     assert spawner.get_state() == {}
     spawner.batch_query_cmd = 'echo xyz'
     with pytest.raises(RuntimeError) as e_info:
         io_loop.run_sync(spawner.start, timeout=30)
+    status = io_loop.run_sync(spawner.query_job_status, timeout=30)
+    assert status == JobStatus.NOTFOUND
     assert spawner.job_id == ''
     assert spawner.job_status == ''
+
+def test_poll_fails(db, io_loop):
+    """Submission works, but a later .poll() fails"""
+    spawner = new_spawner(db=db)
+    assert spawner.get_state() == {}
+    # The start is successful:
+    io_loop.run_sync(spawner.start, timeout=30)
+    spawner.batch_query_cmd = 'echo xyz'
+    # Now, the poll fails:
+    io_loop.run_sync(spawner.poll, timeout=30)
+    # .poll() will run self.clear_state() if it's not found:
+    assert spawner.job_id == ''
+    assert spawner.job_status == ''
+
+def test_unknown_status(db, io_loop):
+    """Polling returns an unknown status"""
+    spawner = new_spawner(db=db)
+    assert spawner.get_state() == {}
+    # The start is successful:
+    io_loop.run_sync(spawner.start, timeout=30)
+    spawner.batch_query_cmd = 'echo UNKNOWN'
+    # This poll should not fail:
+    io_loop.run_sync(spawner.poll, timeout=30)
+    status = io_loop.run_sync(spawner.query_job_status, timeout=30)
+    assert status == JobStatus.UNKNOWN
+    assert spawner.job_id == '12345'
+    assert spawner.job_status != ''
+
 
 def test_templates(db, io_loop):
     """Test templates in the run_command commands"""
@@ -394,6 +427,7 @@ def test_slurm(db, io_loop):
 normal_slurm_script = [
         (re.compile(r'sudo.*sbatch'),   str(testjob)),
         (re.compile(r'sudo.*squeue'),   'PENDING '),          # pending
+        (re.compile(r'sudo.*squeue'),   'slurm_load_jobs error: Unable to contact slurm controller'), # unknown
         (re.compile(r'sudo.*squeue'),   'RUNNING '+testhost), # running
         (re.compile(r'sudo.*squeue'),   'RUNNING '+testhost),
         (re.compile(r'sudo.*scancel'),  'STOP'),
