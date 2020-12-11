@@ -39,6 +39,10 @@ jobs:
     - name: Install nodejs dependencies
       run: |
         sudo npm install -g configurable-http-proxy
+    # We need to check compatibility with different versions of the JH
+    # API, including latest development.  For that, we also need to
+    # pull in the dependencies of that old JH version (but we don't
+    # need conda/npm for our tests).
     - name: install JupyterHub
       run: |
         git clone --quiet --branch ${{ matrix.JHUB_VER }} https://github.com/jupyterhub/jupyterhub.git jupyterhub
