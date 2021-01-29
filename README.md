@@ -1,6 +1,11 @@
 # batchspawner for Jupyterhub
 
-[![Build Status](https://img.shields.io/travis/com/jupyterhub/batchspawner?logo=travis)](https://travis-ci.com/jupyterhub/batchspawner)
+[![GitHub Workflow Status - Test](https://img.shields.io/github/workflow/status/jupyterhub/batchspawner/Test?logo=github&label=tests)](https://github.com/jupyterhub/batchspawner/actions)
+[![Latest PyPI version](https://img.shields.io/pypi/v/batchspawner?logo=pypi&logoColor=white)](https://pypi.python.org/pypi/batchspawner)
+[![GitHub](https://img.shields.io/badge/issue_tracking-github-blue?logo=github)](https://github.com/jupyterhub/batchspawner/issues)
+[![Discourse](https://img.shields.io/badge/help_forum-discourse-blue?logo=discourse)](https://discourse.jupyter.org/c/jupyterhub)
+[![Gitter](https://img.shields.io/badge/social_chat-gitter-blue?logo=gitter)](https://gitter.im/jupyterhub/jupyterhub)
+[![Contribute](https://img.shields.io/badge/I_want_to_contribute!-grey?logo=jupyter)](https://github.com/jupyterhub/batchspawner/blob/master/CONTRIBUTING.md)
 
 This is a custom spawner for [Jupyterhub](https://jupyterhub.readthedocs.io/) that is designed for installations on clusters using batch scheduling software.
 
