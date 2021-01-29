@@ -27,3 +27,24 @@ repos:
     rev: "3.8.4"
     hooks:
       - id: flake8
+
+  # Misc...
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v3.4.0
+    # ref: https://github.com/pre-commit/pre-commit-hooks#hooks-available
+    hooks:
+      # Autoformat: Makes sure files end in a newline and only a newline.
+      - id: end-of-file-fixer
+
+      # Autoformat: Sorts entries in requirements.txt.
+      - id: requirements-txt-fixer
+
+      # Prevent giant (500kB) files from being committed.
+      - id: check-added-large-files
+
+      # Lint: Check for files with names that would conflict on a
+      # case-insensitive filesystem like MacOS HFS+ or Windows FAT.
+      - id: check-case-conflict
+
+      # Lint: Checks that non-binary executables have a proper shebang.
+      - id: check-executables-have-shebangs
