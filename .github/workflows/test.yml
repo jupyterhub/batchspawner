@@ -32,6 +32,7 @@ jobs:
           - "1.1.0"
           - "1.2.0"
         allow_failure: [false]
+
         include:
           - JHUB_VER: "master"
             python-version: "3.9"
@@ -52,6 +53,7 @@ jobs:
       - name: Install nodejs dependencies
         run: |
           sudo npm install -g configurable-http-proxy
+
       # We need to check compatibility with different versions of the JH
       # API, including latest development.  For that, we also need to
       # pull in the dependencies of that old JH version (but we don't
@@ -65,4 +67,4 @@ jobs:
 
       - name: pytest
         run: |
-          pytest --lf --cov batchspawner batchspawner/tests -v
+          pytest --verbose --color=yes --last-failed --cov batchspawner batchspawner/tests
