@@ -1,6 +1,12 @@
+# This is a GitHub workflow defining a set of jobs with a set of steps.
+# ref: https://docs.github.com/en/free-pro-team@latest/actions/reference/workflow-syntax-for-github-actions
+#
 name: Test
 
-on: [push, pull_request]
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
 
 jobs:
   pre-commit:
