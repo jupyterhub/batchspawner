@@ -359,7 +359,7 @@ def test_torque(db, io_loop):
         (re.compile(r"sudo.*qsub"), str(testjob)),
         (
             re.compile(r"sudo.*qstat"),
-            "<job_state>Q</job_state><exec_host></exec_host>".format(testhost),
+            "<job_state>Q</job_state><exec_host></exec_host>",
         ),  # pending
         (
             re.compile(r"sudo.*qstat"),
@@ -403,7 +403,7 @@ def test_moab(db, io_loop):
     ]
     script = [
         (re.compile(r"sudo.*msub"), str(testjob)),
-        (re.compile(r"sudo.*mdiag"), 'State="Idle"'.format(testhost)),  # pending
+        (re.compile(r"sudo.*mdiag"), 'State="Idle"'),  # pending
         (
             re.compile(r"sudo.*mdiag"),
             'State="Running" AllocNodeList="{}"'.format(testhost),
@@ -446,7 +446,7 @@ def test_pbs(db, io_loop):
     ]
     script = [
         (re.compile(r"sudo.*qsub"), str(testjob)),
-        (re.compile(r"sudo.*qstat"), "job_state = Q".format(testhost)),  # pending
+        (re.compile(r"sudo.*qstat"), "job_state = Q"),  # pending
         (
             re.compile(r"sudo.*qstat"),
             "job_state = R\nexec_host = {}/2*1".format(testhost),
@@ -582,7 +582,7 @@ def test_condor(db, io_loop):
             re.compile(r"sudo.*condor_submit"),
             "submitted to cluster {}".format(str(testjob)),
         ),
-        (re.compile(r"sudo.*condor_q"), "1,".format(testhost)),  # pending
+        (re.compile(r"sudo.*condor_q"), "1,"),  # pending
         (re.compile(r"sudo.*condor_q"), "2, @{}".format(testhost)),  # runing
         (re.compile(r"sudo.*condor_q"), "2, @{}".format(testhost)),
         (re.compile(r"sudo.*condor_rm"), "STOP"),
@@ -621,7 +621,7 @@ def test_lfs(db, io_loop):
             re.compile(r"sudo.*bsub"),
             "Job <{}> is submitted to default queue <normal>".format(str(testjob)),
         ),
-        (re.compile(r"sudo.*bjobs"), "PEND ".format(testhost)),  # pending
+        (re.compile(r"sudo.*bjobs"), "PEND "),  # pending
         (re.compile(r"sudo.*bjobs"), "RUN {}".format(testhost)),  # running
         (re.compile(r"sudo.*bjobs"), "RUN {}".format(testhost)),
         (re.compile(r"sudo.*bkill"), "STOP"),
