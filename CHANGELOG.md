@@ -1,6 +1,6 @@
 # Changelog
 
-## unreleased changes
+## v1.1
 
 Added (user)
 
@@ -9,13 +9,17 @@ Added (user)
 
 Added (developer)
 
+* PR #187: support for unknown job state
+
 Changed
 
 * PR #177: Fail on first error in batch script by setting `set -e` to script templates.
 * PR #165: SlurmSpawner: Update template to use `--chdir` instead of `--workdir`. Users of Slurm older than 17.11 may need to revert this locally.
-
-Fixed
-
+* PR #189: remove bashism from default script template
+* PR #195: fix exception handling in run_command
+* PR #198: change from Travis to gh-actions for testing
+* PR #196: documentation
+* PR #199: update setup.py
 
 ## v1.0 (requires minimum JupyterHub 0.9 and Python 3.5)
 
