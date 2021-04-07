@@ -1,5 +1,15 @@
 # Changelog
 
+## unreleased changes
+
+Added (user)
+
+Added (developer)
+
+Changed
+
+Fixed
+
 ## v1.1
 
 Added (user)
