@@ -88,9 +88,10 @@ class BatchSpawnerBase(Spawner):
     start_timeout = Integer(300).tag(config=True)
 
     # override default server ip since batch jobs normally running remotely
-    ip = Unicode("0.0.0.0", help="Address for singleuser server to listen at").tag(
-        config=True
-    )
+    ip = Unicode(
+        "0.0.0.0",
+        help="Address for singleuser server to listen at",
+    ).tag(config=True)
 
     exec_prefix = Unicode(
         "sudo -E -u {username}",
@@ -98,49 +99,60 @@ class BatchSpawnerBase(Spawner):
     ).tag(config=True)
 
     # all these req_foo traits will be available as substvars for templated strings
-    req_queue = Unicode("", help="Queue name to submit job to resource manager").tag(
-        config=True
-    )
+    req_queue = Unicode(
+        "",
+        help="Queue name to submit job to resource manager",
+    ).tag(config=True)
 
     req_host = Unicode(
-        "", help="Host name of batch server to submit job to resource manager"
+        "",
+        help="Host name of batch server to submit job to resource manager",
     ).tag(config=True)
 
-    req_memory = Unicode("", help="Memory to request from resource manager").tag(
-        config=True
-    )
+    req_memory = Unicode(
+        "",
+        help="Memory to request from resource manager",
+    ).tag(config=True)
 
     req_nprocs = Unicode(
-        "", help="Number of processors to request from resource manager"
+        "",
+        help="Number of processors to request from resource manager",
     ).tag(config=True)
 
-    req_ngpus = Unicode("", help="Number of GPUs to request from resource manager").tag(
-        config=True
-    )
+    req_ngpus = Unicode(
+        "",
+        help="Number of GPUs to request from resource manager",
+    ).tag(config=True)
 
-    req_runtime = Unicode("", help="Length of time for submitted job to run").tag(
-        config=True
-    )
+    req_runtime = Unicode(
+        "",
+        help="Length of time for submitted job to run",
+    ).tag(config=True)
 
     req_partition = Unicode(
-        "", help="Partition name to submit job to resource manager"
+        "",
+        help="Partition name to submit job to resource manager",
     ).tag(config=True)
 
     req_account = Unicode(
-        "", help="Account name string to pass to the resource manager"
+        "",
+        help="Account name string to pass to the resource manager",
     ).tag(config=True)
 
     req_options = Unicode(
-        "", help="Other options to include into job submission script"
+        "",
+        help="Other options to include into job submission script",
     ).tag(config=True)
 
     req_prologue = Unicode(
-        "", help="Script to run before single user server starts."
+        "",
+        help="Script to run before single user server starts.",
     ).tag(config=True)
 
-    req_epilogue = Unicode("", help="Script to run after single user server ends.").tag(
-        config=True
-    )
+    req_epilogue = Unicode(
+        "",
+        help="Script to run after single user server ends.",
+    ).tag(config=True)
 
     req_username = Unicode()
 
@@ -164,7 +176,7 @@ class BatchSpawnerBase(Spawner):
     req_keepvars_extra = Unicode(
         help="Extra environment variables which should be configured, "
         "added to the defaults in keepvars, "
-        "comma separated list."
+        "comma separated list.",
     )
 
     batch_script = Unicode(
@@ -401,7 +413,8 @@ class BatchSpawnerBase(Spawner):
             return 1
 
     startup_poll_interval = Float(
-        0.5, help="Polling interval (seconds) to check job state during startup"
+        0.5,
+        help="Polling interval (seconds) to check job state during startup",
     ).tag(config=True)
 
     async def start(self):
@@ -532,10 +545,12 @@ class BatchSpawnerRegexStates(BatchSpawnerBase):
     """
 
     state_pending_re = Unicode(
-        "", help="Regex that matches job_status if job is waiting to run"
+        "",
+        help="Regex that matches job_status if job is waiting to run",
     ).tag(config=True)
     state_running_re = Unicode(
-        "", help="Regex that matches job_status if job is running"
+        "",
+        help="Regex that matches job_status if job is running",
     ).tag(config=True)
     state_exechost_re = Unicode(
         "",
@@ -710,12 +725,14 @@ echo "jupyterhub-singleuser ended gracefully"
 
     # all these req_foo traits will be available as substvars for templated strings
     req_cluster = Unicode(
-        "", help="Cluster name to submit job to resource manager"
+        "",
+        help="Cluster name to submit job to resource manager",
     ).tag(config=True)
 
-    req_qos = Unicode("", help="QoS name to submit job to resource manager").tag(
-        config=True
-    )
+    req_qos = Unicode(
+        "",
+        help="QoS name to submit job to resource manager",
+    ).tag(config=True)
 
     req_srun = Unicode(
         "srun",
@@ -725,17 +742,19 @@ echo "jupyterhub-singleuser ended gracefully"
     ).tag(config=True)
 
     req_reservation = Unicode(
-        "", help="Reservation name to submit to resource manager"
+        "",
+        help="Reservation name to submit to resource manager",
     ).tag(config=True)
 
-    req_gres = Unicode("", help="Additional resources (e.g. GPUs) requested").tag(
-        config=True
-    )
+    req_gres = Unicode(
+        "",
+        help="Additional resources (e.g. GPUs) requested",
+    ).tag(config=True)
 
     # outputs line like "Submitted batch job 209"
     batch_submit_cmd = Unicode("sbatch --parsable").tag(config=True)
     # outputs status and exec node like "RUNNING hostname"
-    batch_query_cmd = Unicode("squeue -h -j {job_id} -o '%T %B'").tag(config=True)  #
+    batch_query_cmd = Unicode("squeue -h -j {job_id} -o '%T %B'").tag(config=True)
     batch_cancel_cmd = Unicode("scancel {job_id}").tag(config=True)
     # use long-form states: PENDING,  CONFIGURING = pending
     #  RUNNING,  COMPLETING = running
@@ -766,7 +785,10 @@ class MultiSlurmSpawner(SlurmSpawner):
     not be resolvable by JupyterHub. Here we enable the administrator to
     map the node names onto the real hostnames via a traitlet."""
 
-    daemon_resolver = Dict({}, help="Map node names to hostnames").tag(config=True)
+    daemon_resolver = Dict(
+        {},
+        help="Map node names to hostnames",
+    ).tag(config=True)
 
     def state_gethost(self):
         host = SlurmSpawner.state_gethost(self)
