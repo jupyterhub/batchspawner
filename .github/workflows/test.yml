@@ -33,8 +33,13 @@ jobs:
           - "1.0.0"
           - "1.1.0"
           - "1.2.0"
+          - "1.3.0"
         allow_failure: [false]
 
+        exclude:
+          # JupyterHub 1.3.0 requires python 3.6+
+          - JHUB_VER: "1.3.0"
+            python-version: "3.5"
         include:
           - JHUB_VER: "master"
             python-version: "3.9"
