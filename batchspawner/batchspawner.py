@@ -16,11 +16,10 @@ Common attributes of batch submission / resource manager environments will inclu
   * job names instead of PIDs
 """
 import asyncio
-from async_generator import async_generator, yield_, yield_from_
+from async_generator import async_generator, yield_
 import pwd
 import os
 import re
-import sys
 
 import xml.etree.ElementTree as ET
 
@@ -29,15 +28,10 @@ from enum import Enum
 from jinja2 import Template
 
 from tornado import gen
-from tornado.process import Subprocess
-from subprocess import CalledProcessError
-from tornado.iostream import StreamClosedError
 
 from jupyterhub.spawner import Spawner
-from jupyterhub.traitlets import Command
 from traitlets import Integer, Unicode, Float, Dict, default
 
-from jupyterhub.utils import random_port
 from jupyterhub.spawner import set_user_setuid
 import jupyterhub
 
