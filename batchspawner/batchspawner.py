@@ -33,7 +33,6 @@ from jupyterhub.spawner import Spawner
 from traitlets import Integer, Unicode, Float, Dict, default
 
 from jupyterhub.spawner import set_user_setuid
-import jupyterhub
 
 
 def format_template(template, *args, **kwargs):
@@ -416,7 +415,7 @@ class BatchSpawnerBase(Spawner):
         self.ip = self.traits()["ip"].default_value
         self.port = self.traits()["port"].default_value
 
-        if jupyterhub.version_info >= (0, 8) and self.server:
+        if self.server:
             self.server.port = self.port
 
         job = await self.submit_batch_script()
@@ -460,10 +459,6 @@ class BatchSpawnerBase(Spawner):
             if hasattr(self, "mock_port"):
                 self.port = self.mock_port
 
-        if jupyterhub.version_info < (0, 7):
-            # store on user for pre-jupyterhub-0.7:
-            self.user.server.port = self.port
-            self.user.server.ip = self.ip
         self.db.commit()
         self.log.info(
             "Notebook server job {0} started at {1}:{2}".format(
