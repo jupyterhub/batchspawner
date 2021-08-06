@@ -153,7 +153,10 @@ class BatchSpawnerBase(Spawner):
         "",
         help="Script to run after single user server ends.",
     ).tag(config=True)
-
+    req_condaenv = Unicode(
+        "",
+        help="Script to run specific conda environment.",
+    ).tag(config=True)
     req_username = Unicode()
 
     @default("req_username")
