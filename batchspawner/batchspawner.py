@@ -420,6 +420,23 @@ class BatchSpawnerBase(Spawner):
         help="Polling interval (seconds) to check job state during startup",
     ).tag(config=True)
 
+    batch_est_start_cmd = Unicode('',
+        help="Command to get the estimated start time from given job {job_id}"
+        ).tag(config=True)
+
+    async def get_est_starttime (self):
+        subvars = self.get_req_subvars();
+        subvars['job_id'] = self.job_id;
+        cmd = ' '.join((format_template(self.exec_prefix, **subvars), format_template(self.batch_est_start_cmd, **subvars)));
+        self.log.info('Trying to estimate job start time with cmd: ' + cmd);
+        output = 'N/A';
+        try:
+            output = await self.run_command(cmd);
+        except RuntimeError as e:
+            self.log.error("Error trying to estimate start time with command " + cmd + "! Error: " + e);
+
+        return output;
+
     async def start(self):
         """Start the process"""
         self.ip = self.traits()["ip"].default_value
@@ -508,11 +525,16 @@ class BatchSpawnerBase(Spawner):
     async def progress(self):
         while True:
             if self.state_ispending():
-                await yield_(
-                    {
+                if not self.batch_est_start_cmd == '':
+                    start_time = await self.get_est_starttime();
+                    if start_time:
+                        await yield_({
+                            "message": "Pending in queue.. Estimated start time: " + str(start_time),
+                            })
+                else:
+                    await yield_({
                         "message": "Pending in queue...",
-                    }
-                )
+                    })     
             elif self.state_isrunning():
                 await yield_(
                     {
@@ -757,7 +779,8 @@ echo "jupyterhub-singleuser ended gracefully"
     # outputs line like "Submitted batch job 209"
     batch_submit_cmd = Unicode("sbatch --parsable").tag(config=True)
     # outputs status and exec node like "RUNNING hostname"
-    batch_query_cmd = Unicode("squeue -h -j {job_id} -o '%T %B'").tag(config=True)
+    batch_query_cmd = Unicode("squeue -ho '%S' --job {job_id}").tag(config=True)
+    #Unicode("squeue -h -j {job_id} -o '%T %B'").tag(config=True)
     batch_cancel_cmd = Unicode("scancel {job_id}").tag(config=True)
     # use long-form states: PENDING,  CONFIGURING = pending
     #  RUNNING,  COMPLETING = running
