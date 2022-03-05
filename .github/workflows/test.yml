@@ -40,6 +40,9 @@ jobs:
           # JupyterHub 1.3.0 requires python 3.6+
           - JHUB_VER: "1.3.0"
             python-version: "3.5"
+          # JupyterHub 0.9.6 used a deprecated sqlalchemy feature removed in py3.9 environment
+          - JHUB_VER: "0.9.6"
+            python-version: "3.9"
         include:
           - JHUB_VER: "master"
             python-version: "3.9"
