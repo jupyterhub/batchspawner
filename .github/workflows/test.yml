@@ -44,7 +44,7 @@ jobs:
           - JHUB_VER: "0.9.6"
             python-version: "3.9"
         include:
-          - JHUB_VER: "master"
+          - JHUB_VER: "main"
             python-version: "3.9"
             allow_failure: true
 
