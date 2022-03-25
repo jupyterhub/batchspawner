@@ -20,7 +20,9 @@ from async_generator import async_generator, yield_, yield_from_
 import pwd
 import os
 import re
-import sys
+import grp
+
+import tempfile
 
 import xml.etree.ElementTree as ET
 
@@ -877,19 +879,25 @@ set -euo pipefail
 class CondorSpawner(UserEnvMixin, BatchSpawnerRegexStates):
     batch_script = Unicode(
         """
-Executable = /bin/sh
+Executable = /bin/bash
 RequestMemory = {memory}
 RequestCpus = {nprocs}
-Arguments = \"-c 'exec {cmd}'\"
+Arguments = \"-c 'source $_CONDOR_SCRATCH_DIR/{apikey_file}; exec {cmd}'\"
 Remote_Initialdir = {homedir}
 Output = {homedir}/.jupyterhub.condor.out
 Error = {homedir}/.jupyterhub.condor.err
-ShouldTransferFiles = False
 GetEnv = True
+transfer_executable = False
+transfer_input_files = {apikeyfile_dir}/{apikey_file}
+should_transfer_files = YES
 {options}
 Queue
 """
     ).tag(config=True)
+
+    req_apikey_file = Unicode("")
+
+    req_apikeyfile_dir = Unicode("/tmp")
 
     # outputs job id string
     batch_submit_cmd = Unicode("condor_submit").tag(config=True)
@@ -902,6 +910,40 @@ Queue
     state_pending_re = Unicode(r"^1,").tag(config=True)
     state_running_re = Unicode(r"^2,").tag(config=True)
     state_exechost_re = Unicode(r"^\w*, .*@([^ ]*)").tag(config=True)
+
+    def write_apikey_file(self):
+        p = "bsapikey-{0}".format(self.user.name)
+
+        with tempfile.NamedTemporaryFile(
+            delete=False, dir=self.req_apikeyfile_dir, prefix=p
+        ) as fp:
+            self.log.info("Writing apikey to file: %s", fp.name)
+            fp.write("export JUPYTERHUB_API_TOKEN={}\n".format(self.api_token).encode())
+            self.req_apikey_file = os.path.basename(fp.name)
+
+        # Set file owned by user for batch-submission
+        user = pwd.getpwnam(self.user.name)
+        os.chown(fp.name, user.pw_uid, user.pw_gid)
+
+    def clean_apikey_file(self):
+        try:
+            os.unlink(os.path.join(self.req_apikeyfile_dir, self.req_apikey_file))
+        except OSError:
+            pass
+
+    def get_env(self):
+        env = super().get_env()
+        env.pop("JUPYTERHUB_API_TOKEN", None)
+        env.pop("JPY_API_TOKEN", None)
+        return env
+
+    async def submit_batch_script(self):
+        self.write_apikey_file()
+        return await super().submit_batch_script()
+
+    async def cancel_batch_job(self):
+        self.clean_apikey_file()
+        await super().cancel_batch_job()
 
     def parse_job_id(self, output):
         match = re.search(r".*submitted to cluster ([0-9]+)", output)
