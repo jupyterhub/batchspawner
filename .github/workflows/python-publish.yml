@@ -27,6 +27,7 @@ jobs:
         run: |
           python -m build --sdist --wheel .
           ls -l dist
+          sha256sum dist/* | tee SHA256SUMS
 
       - name: Publish to PyPI
         env:
