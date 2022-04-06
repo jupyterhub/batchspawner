@@ -194,8 +194,7 @@ error messages:
   batchspawner-specific, with the one exception below. The error log
   would be in the batch script output (same file as above). There may
   also be clues in the JupyterHub logfile.
-  
-- Are you running on an NFS filesystem? It's possible for Jupyter to 
+- Are you running on an NFS filesystem? It's possible for Jupyter to
   experience issues due to varying implementations of the fcntl() system
   call. (See also [Jupyterhub-Notes and Tips: SQLite](https://jupyterhub.readthedocs.io/en/latest/reference/database.html?highlight=NFS#sqlite))
 
