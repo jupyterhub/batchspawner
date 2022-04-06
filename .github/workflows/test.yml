@@ -5,7 +5,21 @@ name: Test
 
 on:
   pull_request:
+    paths-ignore:
+      - "**.md"
+      - "**.yml"
+      - "**.yaml"
+      - "!.github/workflows/test.yml"
   push:
+    paths-ignore:
+      - "**.md"
+      - "**.yml"
+      - "**.yaml"
+      - "!.github/workflows/test.yml"
+    branches-ignore:
+      - "dependabot/**"
+      - "pre-commit-ci-update-config"
+    tags: ["**"]
   workflow_dispatch:
 
 jobs:
