@@ -6,7 +6,7 @@ from .. import BatchSpawnerRegexStates, JobStatus
 from traitlets import Unicode
 import time
 import pytest
-from jupyterhub import orm, version_info
+from jupyterhub import orm
 from tornado import gen
 
 try:
@@ -61,25 +61,18 @@ class BatchDummy(BatchSpawnerRegexStates):
 def new_spawner(db, spawner_class=BatchDummy, **kwargs):
     kwargs.setdefault("cmd", ["singleuser_command"])
     user = db.query(orm.User).first()
-    if version_info < (0, 8):
-        hub = db.query(orm.Hub).first()
-    else:
-        hub = Hub()
-        user = User(user, {})
-        server = Server()
-        # Set it after constructions because it isn't a traitlet.
+    hub = Hub()
+    user = User(user, {})
+    server = Server()
+    # Set it after constructions because it isn't a traitlet.
     kwargs.setdefault("hub", hub)
     kwargs.setdefault("user", user)
     kwargs.setdefault("poll_interval", 1)
-    if version_info < (0, 8):
-        spawner = spawner_class(db=db, **kwargs)
-        spawner.mock_port = testport
-    else:
-        print("JupyterHub >=0.8 detected, using new spawner creation")
-        # These are not traitlets so we have to set them here
-        spawner = user._new_spawner("", spawner_class=spawner_class, **kwargs)
-        spawner.server = server
-        spawner.mock_port = testport
+
+    # These are not traitlets so we have to set them here
+    spawner = user._new_spawner("", spawner_class=spawner_class, **kwargs)
+    spawner.server = server
+    spawner.mock_port = testport
     return spawner
 
 
@@ -91,10 +84,7 @@ def test_stress_submit(db, io_loop):
 
 
 def check_ip(spawner, value):
-    if version_info < (0, 7):
-        assert spawner.user.server.ip == value
-    else:
-        assert spawner.ip == value
+    assert spawner.ip == value
 
 
 def test_spawner_start_stop_poll(db, io_loop):

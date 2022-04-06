@@ -40,7 +40,7 @@ setup_args = dict(
     url="http://jupyter.org",
     license="BSD",
     platforms="Linux, Mac OS X",
-    python_requires="~=3.3",
+    python_requires="~=3.5",
     keywords=["Interactive", "Interpreter", "Shell", "Web", "Jupyter"],
     classifiers=[
         "Intended Audience :: Developers",
