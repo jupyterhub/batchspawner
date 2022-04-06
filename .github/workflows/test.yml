@@ -23,14 +23,6 @@ on:
   workflow_dispatch:
 
 jobs:
-  pre-commit:
-    name: Run pre-commit
-    runs-on: ubuntu-20.04
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v3
-      - uses: pre-commit/action@v2.0.3
-
   pytest:
     name: "Run pytest"
     runs-on: ubuntu-20.04
