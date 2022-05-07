@@ -693,6 +693,7 @@ class SlurmSpawner(UserEnvMixin, BatchSpawnerRegexStates):
 #SBATCH --chdir={{homedir}}
 #SBATCH --export={{keepvars}}
 #SBATCH --get-user-env=L
+#SBATCH --nodes=1 --ntasks=1
 {% if partition  %}#SBATCH --partition={{partition}}
 {% endif %}{% if runtime    %}#SBATCH --time={{runtime}}
 {% endif %}{% if memory     %}#SBATCH --mem={{memory}}
