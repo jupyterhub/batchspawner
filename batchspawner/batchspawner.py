@@ -585,15 +585,15 @@ class BatchSpawnerBase(Spawner):
             if hasattr(self, "mock_port"):
                 self.port = self.mock_port
 
+        if self.connect_to_job_cmd:
+            await self.connect_to_job()
+
         self.db.commit()
         self.log.info(
             "Notebook server job {0} started at {1}:{2}".format(
                 self.job_id, self.ip, self.port
             )
         )
-
-        if self.connect_to_job_cmd:
-            await self.connect_to_job()
 
         return self.ip, self.port
 
