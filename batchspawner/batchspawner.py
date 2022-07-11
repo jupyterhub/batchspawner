@@ -999,6 +999,7 @@ Queue
         'condor_q {job_id} -format "%s, " JobStatus -format "%s" RemoteHost -format "\n" True'
     ).tag(config=True)
     batch_cancel_cmd = Unicode("condor_rm {job_id}").tag(config=True)
+    connect_to_job_cmd = Unicode("condor_ssh_to_job -ssh \"ssh -L {port}:localhost:{port} -oExitOnForwardFailure=yes\" {job_id}").tag(config=True)
     # job status: 1 = pending, 2 = running
     state_pending_re = Unicode(r"^1,").tag(config=True)
     state_running_re = Unicode(r"^2,").tag(config=True)
@@ -1021,6 +1022,9 @@ Queue
             .replace("'", "''")
         )
 
+    def state_gethost(self):
+        """This always returns localhost since connect_to_job forwards the singleuser server port from the spawned job"""
+        return "localhost"
 
 class LsfSpawner(BatchSpawnerBase):
     """A Spawner that uses IBM's Platform Load Sharing Facility (LSF) to launch notebooks."""
