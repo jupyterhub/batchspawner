@@ -32,6 +32,7 @@ from tornado import gen
 from jupyterhub.spawner import Spawner
 from traitlets import Integer, Unicode, Float, Dict, default
 
+from jupyterhub.utils import random_port
 from jupyterhub.spawner import set_user_setuid
 
 
@@ -190,7 +191,15 @@ class BatchSpawnerBase(Spawner):
         help="Command to connect to running batch job and forward the port "
              "of the running notebook to the Hub. If empty, direct connectivity is assumed. "
              "Uses self.job_id as {job_id} and the self.port as {port}."
+             "If {rport} is used in this string, it is set to self.port, "
+             "and a new random self.port is chosen locally and used as {port}."
+             "This is useful e.g. for SSH port forwarding."
         ).tag(config=True)
+
+    rport = Integer(0,
+        help="Remote port of notebook, will be set if it differs from the self.port."
+             "This is set by connect_to_job() if needed."
+        )
 
     # Raw output of job submission command unless overridden
     job_id = Unicode()
@@ -223,12 +232,19 @@ class BatchSpawnerBase(Spawner):
 
     async def connect_to_job(self):
         """This command ensures the port of the singleuser server is reachable from the
-        Batchspawner machine. By default, it does nothing, i.e. direct connectivity
-        is assumed.
+        Batchspawner machine. Only called if connect_to_job_cmd is set.
+        If the template string connect_to_job_cmd contains {rport},
+        a new random self.port is chosen locally (useful e.g. for SSH port forwarding).
         """
         subvars = self.get_req_subvars()
         subvars['job_id'] = self.job_id
-        subvars['port'] = self.port
+        if '{rport}' in self.connect_to_job_cmd:
+            self.rport = self.port
+            self.port = random_port()
+            subvars['rport'] = self.rport
+            subvars['port'] = self.port
+        else:
+            subvars['port'] = self.port
         cmd = ' '.join((format_template(self.exec_prefix, **subvars),
                         format_template(self.connect_to_job_cmd, **subvars)))
         await self.run_background_command(cmd)
