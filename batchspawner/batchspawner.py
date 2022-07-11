@@ -312,14 +312,14 @@ class BatchSpawnerBase(Spawner):
     async def run_background_command(self, cmd, startup_check_delay=1, input=None, env=None):
         """Runs the given background command, adds it to background_processes,
         and checks if the command is still running after startup_check_delay."""
-        background_process = self.run_command(cmd, input, env)
-        success_check_delay = self._async_wait_process(startup_check_delay)
+        background_process = asyncio.ensure_future(self.run_command(cmd, input, env))
+        success_check_delay = asyncio.ensure_future(self._async_wait_process(startup_check_delay))
 
         # Start up both the success check process and the actual process.
         done, pending = await asyncio.wait([background_process, success_check_delay], return_when=asyncio.FIRST_COMPLETED)
 
         # If the success check process is the one which exited first, all is good, else fail.
-        if list(done)[0]._coro == success_check_delay:
+        if success_check_delay in done:
             background_task = list(pending)[0]
             self.background_processes.append(background_task)
             return background_task
