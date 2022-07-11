@@ -190,7 +190,7 @@ class BatchSpawnerBase(Spawner):
     connect_to_job_cmd = Unicode('',
         help="Command to connect to running batch job and forward the port "
              "of the running notebook to the Hub. If empty, direct connectivity is assumed. "
-             "Uses self.job_id as {job_id} and the self.port as {port}."
+             "Uses self.job_id as {job_id}, self.port as {port} and self.ip as {host}."
              "If {rport} is used in this string, it is set to self.port, "
              "and a new random self.port is chosen locally and used as {port}."
              "This is useful e.g. for SSH port forwarding."
@@ -237,6 +237,7 @@ class BatchSpawnerBase(Spawner):
         a new random self.port is chosen locally (useful e.g. for SSH port forwarding).
         """
         subvars = self.get_req_subvars()
+        subvars['host'] = self.ip
         subvars['job_id'] = self.job_id
         if '{rport}' in self.connect_to_job_cmd:
             self.rport = self.port
