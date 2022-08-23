@@ -10,6 +10,7 @@ from jupyterhub.services.auth import HubAuth
 
 from tornado.escape import json_encode
 
+
 def main(argv=None):
     port = random_port()
     hub_auth = HubAuth()
@@ -20,7 +21,7 @@ def main(argv=None):
         hub_auth._api_request(
             method="POST",
             url=url_path_join(hub_auth.api_url, "batchspawner"),
-            body=json_encode({"port": port})
+            body=json_encode({"port": port}),
         )
     )
 
