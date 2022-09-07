@@ -10,6 +10,18 @@ Changed
 
 Fixed
 
+## v1.2
+
+Changed
+
+- PR #237: Replace use of scripts with entry_points
+- PR #208 #238 #239 #240 #241: updates to CI - bumping versions and aligning with Jupyterhub standards
+- PR #220: remove code supporting Jupyterhub earlier than 0.9
+
+Fixed
+
+- PR #229: LSF jobs with multiple slots display each hostname ':' separated
+
 ## v1.1
 
 Added (user)
