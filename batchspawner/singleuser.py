@@ -1,4 +1,3 @@
-import asyncio
 import os
 import sys
 
@@ -8,7 +7,7 @@ from shutil import which
 from jupyterhub.utils import random_port, url_path_join
 from jupyterhub.services.auth import HubAuth
 
-from tornado.escape import json_encode
+import requests
 
 
 def main(argv=None):
@@ -17,12 +16,22 @@ def main(argv=None):
     hub_auth.client_ca = os.environ.get("JUPYTERHUB_SSL_CLIENT_CA", "")
     hub_auth.certfile = os.environ.get("JUPYTERHUB_SSL_CERTFILE", "")
     hub_auth.keyfile = os.environ.get("JUPYTERHUB_SSL_KEYFILE", "")
-    asyncio.run(
-        hub_auth._api_request(
-            method="POST",
-            url=url_path_join(hub_auth.api_url, "batchspawner"),
-            body=json_encode({"port": port}),
-        )
+
+    url = url_path_join(hub_auth.api_url, "batchspawner")
+    headers = {"Authorization": f"token {hub_auth.api_token}"}
+
+    # internal_ssl kwargs
+    kwargs = {}
+    if hub_auth.certfile and hub_auth.keyfile:
+        kwargs["cert"] = (hub_auth.certfile, hub_auth.keyfile)
+    if hub_auth.client_ca:
+        kwargs["verify"] = hub_auth.client_ca
+
+    r = requests.post(
+        url,
+        headers={"Authorization": f"token {hub_auth.api_token}"},
+        json={"port": port},
+        **kwargs,
     )
 
     cmd_path = which(sys.argv[1])
