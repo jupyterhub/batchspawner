@@ -10,7 +10,7 @@ import jupyterhub
 from jupyterhub.utils import random_port, url_path_join
 from jupyterhub.services.auth import HubAuth
 
-JH_MAJOR_VERSION, _, _ = jupyterhub.__version__.split('.')
+JH_MAJOR_VERSION, _, _ = jupyterhub.__version__.split(".")
 
 
 def main(argv=None):
