@@ -448,6 +448,13 @@ class BatchSpawnerBase(Spawner):
             # don't actually run the single-user server yet.
             if hasattr(self, "mock_port"):
                 self.port = self.mock_port
+            # Check if job is still running
+            status = await self.poll()
+            if status:
+                raise RuntimeError(
+                    "The Jupyter batch job started"
+                    " but died before launching the single-user server."
+                )
 
         self.db.commit()
         self.log.info(
