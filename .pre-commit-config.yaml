@@ -14,7 +14,13 @@ repos:
     rev: "22.12.0"
     hooks:
       - id: black
-        args: [--target-version=py36]
+        args:
+          - --target-version=py36
+          - --target-version=py37
+          - --target-version=py38
+          - --target-version=py39
+          - --target-version=py310
+          - --target-version=py311
 
   # Autoformat: markdown, yaml
   - repo: https://github.com/pre-commit/mirrors-prettier
@@ -48,3 +54,8 @@ repos:
 
       # Lint: Checks that non-binary executables have a proper shebang.
       - id: check-executables-have-shebangs
+
+
+# pre-commit.ci config reference: https://pre-commit.ci/#configuration
+ci:
+  autoupdate_schedule: monthly
