@@ -1,5 +1,7 @@
 import os
 import sys
+import asyncio
+import json
 
 from runpy import run_path
 from shutil import which
@@ -14,11 +16,11 @@ def main(argv=None):
     hub_auth.client_ca = os.environ.get("JUPYTERHUB_SSL_CLIENT_CA", "")
     hub_auth.certfile = os.environ.get("JUPYTERHUB_SSL_CERTFILE", "")
     hub_auth.keyfile = os.environ.get("JUPYTERHUB_SSL_KEYFILE", "")
-    hub_auth._api_request(
+    asyncio.run(hub_auth._api_request(
         method="POST",
         url=url_path_join(hub_auth.api_url, "batchspawner"),
-        json={"port": port},
-    )
+        body=json.dumps({"port": port})
+    ))
 
     cmd_path = which(sys.argv[1])
     sys.argv = sys.argv[1:] + ["--port={}".format(port)]
