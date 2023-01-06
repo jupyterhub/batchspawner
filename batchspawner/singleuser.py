@@ -16,11 +16,13 @@ def main(argv=None):
     hub_auth.client_ca = os.environ.get("JUPYTERHUB_SSL_CLIENT_CA", "")
     hub_auth.certfile = os.environ.get("JUPYTERHUB_SSL_CERTFILE", "")
     hub_auth.keyfile = os.environ.get("JUPYTERHUB_SSL_KEYFILE", "")
-    asyncio.run(hub_auth._api_request(
-        method="POST",
-        url=url_path_join(hub_auth.api_url, "batchspawner"),
-        body=json.dumps({"port": port})
-    ))
+    asyncio.run(
+        hub_auth._api_request(
+            method="POST",
+            url=url_path_join(hub_auth.api_url, "batchspawner"),
+            body=json.dumps({"port": port}),
+        )
+    )
 
     cmd_path = which(sys.argv[1])
     sys.argv = sys.argv[1:] + ["--port={}".format(port)]
