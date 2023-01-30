@@ -476,11 +476,11 @@ async def test_slurm(db, event_loop):
         re.compile(
             r"PROLOGUE.*srun batchspawner-singleuser singleuser_command.*EPILOGUE", re.S
         ),
-        re.compile(r"^#SBATCH \s+ --cpus-per-task=5", re.X | re.M),
-        re.compile(r"^#SBATCH \s+ --time=3-05:10:10", re.X | re.M),
-        re.compile(r"^#SBATCH \s+ some_option_asdf", re.X | re.M),
-        re.compile(r"^#SBATCH \s+ --reservation=RES123", re.X | re.M),
-        re.compile(r"^#SBATCH \s+ --gres=GRES123", re.X | re.M),
+        re.compile(r"^\#SBATCH \s+ --cpus-per-task=5", re.X | re.M),
+        re.compile(r"^\#SBATCH \s+ --time=3-05:10:10", re.X | re.M),
+        re.compile(r"^\#SBATCH \s+ some_option_asdf", re.X | re.M),
+        re.compile(r"^\#SBATCH \s+ --reservation=RES123", re.X | re.M),
+        re.compile(r"^\#SBATCH \s+ --gres=GRES123", re.X | re.M),
     ]
     from .. import SlurmSpawner
 
