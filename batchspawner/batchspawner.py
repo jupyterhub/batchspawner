@@ -666,12 +666,12 @@ class UserEnvMixin:
 class SlurmSpawner(UserEnvMixin, BatchSpawnerRegexStates):
     batch_script = Unicode(
         """#!/bin/bash
-#SBATCH --output={{homedir}}/jupyterhub_slurmspawner_%j.log
 #SBATCH --job-name=spawner-jupyterhub
 #SBATCH --chdir={{homedir}}
 #SBATCH --export={{keepvars}}
 #SBATCH --get-user-env=L
-{% if partition  %}#SBATCH --partition={{partition}}
+{% if output %}#SBATCH --output={% if not output.startswith('/') %}{{homedir}}/{% endif %}{{output}}
+{% endif %}{% if partition  %}#SBATCH --partition={{partition}}
 {% endif %}{% if runtime    %}#SBATCH --time={{runtime}}
 {% endif %}{% if memory     %}#SBATCH --mem={{memory}}
 {% endif %}{% if gres       %}#SBATCH --gres={{gres}}
@@ -715,6 +715,12 @@ echo "jupyterhub-singleuser ended gracefully"
     req_gres = Unicode(
         "",
         help="Additional resources (e.g. GPUs) requested",
+    ).tag(config=True)
+
+    req_output = Unicode(
+        "jupyterhub_slurmspawner_%j.log",
+        help="Batch script standard output and standard error filename pattern."
+        "Relative filename is considered relative to ``req_homedir``.",
     ).tag(config=True)
 
     # outputs line like "Submitted batch job 209"
