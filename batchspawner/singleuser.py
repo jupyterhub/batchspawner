@@ -12,9 +12,6 @@ from jupyterhub.utils import random_port, url_path_join
 def main(argv=None):
     port = random_port()
     hub_auth = HubAuth()
-    hub_auth.client_ca = os.environ.get("JUPYTERHUB_SSL_CLIENT_CA", "")
-    hub_auth.certfile = os.environ.get("JUPYTERHUB_SSL_CERTFILE", "")
-    hub_auth.keyfile = os.environ.get("JUPYTERHUB_SSL_KEYFILE", "")
 
     url = url_path_join(hub_auth.api_url, "batchspawner")
     headers = {"Authorization": f"token {hub_auth.api_token}"}
