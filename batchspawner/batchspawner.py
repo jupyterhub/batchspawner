@@ -725,29 +725,55 @@ echo "jupyterhub-singleuser ended gracefully"
                 return json.load(fh)
         except FileNotFoundError:
             return {
-                "basic": {"ntasks": "1", "nprocs": "9",  "ngpus": "1", "gres": "gpu:2", "partition": "pbatch", "desc": "1 Task, 1 GPU,  9 Cores"},
-                "newer": {"ntasks": "1", "nprocs": "32", "ngpus":  "", "gres": "gpu:volta:2",  "partition": "pbatch", "desc": "1 Task, 1 GPU, 32 Cores, Newer GPUs"},
-                "test": {"ntasks": "1", "nprocs": "1",  "ngpus": "0", "partition": "pbatch", "desc": "1 Task, 0 GPU,  1 Cores"},
+                "basic": {
+                    "ntasks": "1",
+                    "nprocs": "9",
+                    "ngpus": "1",
+                    "gres": "gpu:2",
+                    "partition": "pbatch",
+                    "desc": "1 Task, 1 GPU,  9 Cores",
+                },
+                "newer": {
+                    "ntasks": "1",
+                    "nprocs": "32",
+                    "ngpus": "",
+                    "gres": "gpu:volta:2",
+                    "partition": "pbatch",
+                    "desc": "1 Task, 1 GPU, 32 Cores, Newer GPUs",
+                },
+                "test": {
+                    "ntasks": "1",
+                    "nprocs": "1",
+                    "ngpus": "0",
+                    "partition": "pbatch",
+                    "desc": "1 Task, 0 GPU,  1 Cores",
+                },
             }
-#######
-    @default('options_form')
+
+    #######
+    @default("options_form")
     def _options_form(self):
-        options = ['<option value="{k}">{desc}</option>'.format(k=k, **v)
-                   for k, v in self.profiles().items()]
+        options = [
+            '<option value="{k}">{desc}</option>'.format(k=k, **v)
+            for k, v in self.profiles().items()
+        ]
         return """
             <select name="profile" class="form-control">{options}</select>
-        """.format(options="\n".join(options))
+        """.format(
+            options="\n".join(options)
+        )
 
     def options_from_form(self, formdata):
         """Turn html formdata from `options_form` into a dict for later use"""
 
         options = {}
-        profile = self.profiles()[formdata.get('profile', ['basic'])[0].strip()]
+        profile = self.profiles()[formdata.get("profile", ["basic"])[0].strip()]
         options["profile"] = profile
         self.req_nprocs = profile["nprocs"]
         self.req_ngpus = profile["ngpus"]
         return options
-#######
+
+    #######
 
     # all these req_foo traits will be available as substvars for templated strings
     req_cluster = Unicode(
