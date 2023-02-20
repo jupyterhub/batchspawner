@@ -20,6 +20,10 @@ from async_generator import async_generator, yield_
 import pwd
 import os
 import re
+import grp
+import pwd
+import shutil
+import sys
 
 import xml.etree.ElementTree as ET
 
@@ -27,6 +31,7 @@ from enum import Enum
 
 from jinja2 import Template
 
+from pathlib import Path
 from tornado import gen
 
 from jupyterhub.spawner import Spawner
@@ -711,6 +716,38 @@ echo "jupyterhub-singleuser ended gracefully"
 {{epilogue}}
 """
     ).tag(config=True)
+    #######
+    profiles_file = Unicode("").tag(config=True)
+
+    def profiles(self):
+        try:
+            with open(self.profiles_file) as fh:
+                return json.load(fh)
+        except FileNotFoundError:
+            return {
+                "basic": {"ntasks": "1", "nprocs": "9",  "ngpus": "1", "gres": "gpu:2", "partition": "pbatch", "desc": "1 Task, 1 GPU,  9 Cores"},
+                "newer": {"ntasks": "1", "nprocs": "32", "ngpus":  "", "gres": "gpu:volta:2",  "partition": "pbatch", "desc": "1 Task, 1 GPU, 32 Cores, Newer GPUs"},
+                "test": {"ntasks": "1", "nprocs": "1",  "ngpus": "0", "partition": "pbatch", "desc": "1 Task, 0 GPU,  1 Cores"},
+            }
+#######
+    @default('options_form')
+    def _options_form(self):
+        options = ['<option value="{k}">{desc}</option>'.format(k=k, **v)
+                   for k, v in self.profiles().items()]
+        return """
+            <select name="profile" class="form-control">{options}</select>
+        """.format(options="\n".join(options))
+
+    def options_from_form(self, formdata):
+        """Turn html formdata from `options_form` into a dict for later use"""
+
+        options = {}
+        profile = self.profiles()[formdata.get('profile', ['basic'])[0].strip()]
+        options["profile"] = profile
+        self.req_nprocs = profile["nprocs"]
+        self.req_ngpus = profile["ngpus"]
+        return options
+#######
 
     # all these req_foo traits will be available as substvars for templated strings
     req_cluster = Unicode(
@@ -977,6 +1014,45 @@ set -eu
             )
         )
         return
+
+    async def move_certs(self, paths):
+        home_target = ".jupyter/jupyterhub/batchspawner"
+        dest = os.path.join(self.req_homedir, home_target)
+        shutil.rmtree(dest, ignore_errors=True)
+        os.makedirs(dest, mode=0o755, exist_ok=True)
+        shutil.move(paths["keyfile"], dest)
+        shutil.move(paths["certfile"], dest)
+        shutil.copy(paths["cafile"], dest)
+
+        key_base_name = os.path.basename(paths["keyfile"])
+        cert_base_name = os.path.basename(paths["certfile"])
+        ca_base_name = os.path.basename(paths["cafile"])
+
+        key = os.path.join(dest, key_base_name)
+        cert = os.path.join(dest, cert_base_name)
+        ca = os.path.join(dest, ca_base_name)
+
+        def paths_to_path(path):
+            curr = Path()
+            paths = []
+            for segment in str(path).split("/"):
+                curr = curr / segment
+                paths.append(curr)
+            return paths
+
+        prefix = Path(self.req_homedir)
+        to_chown = [prefix / p for p in paths_to_path(home_target)]
+        to_chown += [*Path(dest).iterdir()]
+        self.log.debug("Paths: " + " ".join([str(p) for p in to_chown]))
+        user = pwd.getpwnam(self.user.name)
+        for f in to_chown:
+            shutil.chown(f, user=user.pw_uid, group=user.pw_gid)
+
+        return {
+            "keyfile": key,
+            "certfile": cert,
+            "cafile": ca,
+        }
 
 
 # vim: set ai expandtab softtabstop=4:
