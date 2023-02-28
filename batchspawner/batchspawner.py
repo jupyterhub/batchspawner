@@ -969,7 +969,7 @@ set -eu
 
     def state_gethost(self):
         if self.job_status:
-            return self.job_status.split(" ")[1].strip()
+            return self.job_status.split(" ")[1].strip().split(":")[0]
 
         self.log.error(
             "Spawner unable to match host addr in job {0} with status {1}".format(
