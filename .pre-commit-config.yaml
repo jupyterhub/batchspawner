@@ -55,7 +55,6 @@ repos:
       # Lint: Checks that non-binary executables have a proper shebang.
       - id: check-executables-have-shebangs
 
-
 # pre-commit.ci config reference: https://pre-commit.ci/#configuration
 ci:
   autoupdate_schedule: monthly
