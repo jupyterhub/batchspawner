@@ -16,6 +16,8 @@ Common attributes of batch submission / resource manager environments will inclu
   * job names instead of PIDs
 """
 import asyncio
+import subprocess
+import tempfile
 from async_generator import async_generator, yield_
 import pwd
 import os
@@ -78,7 +80,7 @@ class BatchSpawnerBase(Spawner):
     """
 
     # override default since batch systems typically need longer
-    start_timeout = Integer(300).tag(config=True)
+    start_timeout = Integer(1200).tag(config=True)
 
     # override default server ip since batch jobs normally running remotely
     ip = Unicode(
@@ -87,7 +89,8 @@ class BatchSpawnerBase(Spawner):
     ).tag(config=True)
 
     exec_prefix = Unicode(
-        "sudo -E -u {username}",
+        "",
+        # "sudo -E -u {username}",
         help="Standard executon prefix (e.g. the default sudo -E -u {username})",
     ).tag(config=True)
 
@@ -216,6 +219,19 @@ class BatchSpawnerBase(Spawner):
         return " ".join([self.batchspawner_singleuser_cmd] + self.cmd + self.get_args())
 
     async def run_command(self, cmd, input=None, env=None):
+
+        if getattr(self, 'input_as_file', False) and input is not None:
+            with tempfile.NamedTemporaryFile(mode="w", delete=False) as f:
+                f.write(input)
+                f.flush()
+                cmd = cmd + " " + f.name
+                input = None
+
+        # self.log.info("Running command: %s" % cmd)
+        # out = subprocess.check_output(cmd, shell=True, env=env).decode()
+
+        # return out
+
         proc = await asyncio.create_subprocess_shell(
             cmd,
             env=env,
@@ -227,7 +243,7 @@ class BatchSpawnerBase(Spawner):
 
         if input:
             inbytes = input.encode()
-
+            
         try:
             out, eout = await proc.communicate(input=inbytes)
         except:
@@ -235,7 +251,7 @@ class BatchSpawnerBase(Spawner):
             proc.kill()
             self.log.debug("Running command failed, killed process.")
             try:
-                out, eout = await asyncio.wait_for(proc.communicate(), timeout=2)
+                out, eout = await asyncio.wait_for(proc.communicate(), timeout=10)
                 out = out.decode().strip()
                 eout = eout.decode().strip()
                 self.log.error("Subprocess returned exitcode %s" % proc.returncode)
@@ -406,7 +422,7 @@ class BatchSpawnerBase(Spawner):
             return 1
 
     startup_poll_interval = Float(
-        0.5,
+        2,
         help="Polling interval (seconds) to check job state during startup",
     ).tag(config=True)
 
@@ -449,6 +465,22 @@ class BatchSpawnerBase(Spawner):
                     " while pending in the queue or died immediately"
                     " after starting."
                 )
+            await gen.sleep(self.startup_poll_interval)
+
+
+        while True:
+            await self.query_job_log()
+
+            try:
+                self.state_gethost()
+                if self.port != self.traits()["port"].default_value:
+                    self.log.info(f"found ip {self.ip} and port {self.port} in log")
+                    break
+            except Exception as e:
+                self.log.warn(f"failed to get ip: {e}")
+            else:
+                self.log.info(f"no ip in log yet: {self.job_log}")
+
             await gen.sleep(self.startup_poll_interval)
 
         self.ip = self.state_gethost()
@@ -980,3 +1012,174 @@ set -eu
 
 
 # vim: set ai expandtab softtabstop=4:
+
+
+
+
+
+
+# class ARCSpawner(UserEnvMixin, BatchSpawnerRegexStates):
+class ARCSpawner(BatchSpawnerRegexStates):
+    batch_script = Unicode("""&
+( jobname = "session" )
+( executable = "/usr/bin/bash" )( arguments = "run.sh" )
+( inputfiles = 
+    ("run.sh" "/etc/run.sh")
+    ("fkdata" "/etc/forwardkey")
+    ("image.sif" "https://dcache.cta.cscs.ch:2880/lst/software/jh-cta-0ef5decc-gammapy-v1.0.sif") 
+)
+     (cpuTime="60")
+     (wallTime="60")
+(* maximal time for the session directory to exist on the remote node, days *)
+     (lifeTime="14")
+ (* memory required for the job, per count, Mbytes *)
+     (Memory="200000")
+(* disk space required for the job, Mbytes *)
+     (*Disk="100000"*)
+
+ (count="1") 
+ (countpernode="1") 
+
+(* (exclusiveexecution="yes") *)
+
+( stdout = "stdout" )
+
+( queue="normal" )
+
+( join = "yes" ) 
+( gmlog = "gmlog" ) """).tag(config=True)
+
+               
+# """
+# #!/bin/bash
+# #SBATCH --output={{homedir}}/jupyterhub_slurmspawner_%j.log
+# #SBATCH --export={{keepvars}}
+# {% if partition  %}#SBATCH --partition={{partition}}
+# {% endif %}{% if runtime    %}#SBATCH --time={{runtime}}
+# {% endif %}{% if memory     %}#SBATCH --mem={{memory}}
+# {% endif %}{% if gres       %}#SBATCH --gres={{gres}}
+# {% endif %}{% if nprocs     %}#SBATCH --cpus-per-task={{nprocs}}
+# {% endif %}{% if reservation%}#SBATCH --reservation={{reservation}}
+# {% endif %}{% if options    %}#SBATCH {{options}}{% endif %}
+
+# set -euo pipefail
+
+# trap 'echo SIGTERM received' TERM
+# {{prologue}}
+
+# which jupyterhub-singleuser
+
+# {% if srun %}{{srun}} {% endif %}{{cmd}}
+# echo "jupyterhub-singleuser ended gracefully"
+# {{epilogue}}
+# """
+
+    http_timeout = Integer(300, config=True, help="Timeout for HTTP requests")
+
+    # all these req_foo traits will be available as substvars for templated strings
+    req_cluster = Unicode(
+        "",
+        help="Cluster name to submit job to resource manager",
+    ).tag(config=True)
+
+    req_qos = Unicode(
+        "",
+        help="QoS name to submit job to resource manager",
+    ).tag(config=True)
+
+    exec_prefix = Unicode(
+        "",
+    ).tag(config=True)
+
+    req_srun = Unicode(
+        "srun",
+        help="Set req_srun='' to disable running in job step, and note that "
+        "this affects environment handling.  This is effectively a "
+        "prefix for the singleuser command.",
+    ).tag(config=True)
+
+    req_reservation = Unicode(
+        "",
+        help="Reservation name to submit to resource manager",
+    ).tag(config=True)
+
+    req_gres = Unicode(
+        "",
+        help="Additional resources (e.g. GPUs) requested",
+    ).tag(config=True)
+
+    input_as_file = True
+
+    # outputs line like "Submitted batch job 209"
+    batch_submit_cmd = Unicode("arcsub -d DEBUG").tag(config=True)
+    # outputs status and exec node like "RUNNING hostname"
+    batch_query_cmd = Unicode("arcstat -d DEBUG {job_id}").tag(config=True)
+    batch_cancel_cmd = Unicode("arckill -d DEBUG {job_id}").tag(config=True)
+    # use long-form states: PENDING,  CONFIGURING = pending
+    # #  RUNNING,  COMPLETING = running
+    # state_pending_re = Unicode(r"^(?:Accepted|Submitted)").tag(config=True)
+    # state_running_re = Unicode(r"^(?:Running)").tag(config=True)
+    # state_unknown_re = Unicode(
+    #     r"^_load_jobs error: (?:Socket timed out on send/recv|Unable to contact slurm controller)"
+    # ).tag(config=True)
+    # state_exechost_re = Unicode(r"\s+((?:[\w_-]+\.?)+)$").tag(config=True)
+
+    def parse_job_id(self, output):
+        self.log.info("output: %s", output)
+        try:
+            for output_line in output.splitlines():
+                self.log.info("output_line: %s", output_line)
+                if output_line.startswith('Job submitted with jobid:'):
+                    id = output_line.split()[-1]
+        except Exception as e:
+            self.log.error("ARCSpawner unable to parse job ID from text: " + output)
+            raise e
+        return id
+
+    
+    @property
+    def job_state(self):
+        if self.job_status:
+            if r := re.search(r"State: (.*)", self.job_status):
+                return r.group(1)
+            
+
+    def state_ispending(self):
+        # Parse results of batch_query_cmd
+        # Output determined by results of self.batch_query_cmd
+        self.log.info("\033[31mchecking pending from job_status: " + str(self.job_status) + "\033[0m")
+        return self.job_status is None or self.job_state in ["Accepted", "Submitted", "Queuing"]
+
+
+    def state_isrunning(self):
+        # Parse results of batch_query_cmd
+        # Output determined by results of self.batch_query_cmd
+        return self.job_state in ["Running"]
+    
+
+    def state_gethost(self):
+        self.port = int(re.search(r"http://127.0.0.1:(\d{4})/lab?", self.job_log).group(1))
+
+        return "148.187.151.63"
+        #TODO: get from config
+
+    @default("req_homedir")
+    def _req_homedir_default(self):
+        return "/root"
+
+
+    async def query_job_log(self):
+        """Check job status, return JobStatus object."""
+               
+        cmd = f"arccat {self.job_id}"
+
+        self.log.info("Spawner querying job: " + cmd)
+        try:
+            self.job_log = await self.run_command(cmd)
+        except RuntimeError as e:
+            # e.args[0] is stderr from the process
+            self.job_log = e.args[0]
+        except Exception as e:
+            self.log.error("Error querying job " + self.job_id)
+            self.job_log = ""
+        
