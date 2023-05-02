@@ -659,7 +659,8 @@ set -eu
 
 class UserEnvMixin:
     """Mixin class that computes values for USER, SHELL and HOME in the environment passed to
-    the job submission subprocess in case the batch system needs these for the batch script."""
+    the job submission subprocess in case the batch system needs these for the batch script.
+    """
 
     def user_env(self, env):
         """get user environment"""
