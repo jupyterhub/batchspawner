@@ -21,6 +21,7 @@ import subprocess
 import tempfile
 from textwrap import dedent
 from async_generator import async_generator, yield_
+import asyncio, asyncssh, sys
 import pwd
 import os
 import re
@@ -481,8 +482,8 @@ class BatchSpawnerBase(Spawner):
             except Exception as e:
                 self.log.warn(f"failed to get ip: {e}")
             else:
-                self.log.info(f"no ip in log yet: {self.job_log}")
-
+                self.log.info("no ip in log yet")
+            
             await gen.sleep(self.startup_poll_interval)
 
         self.ip = self.state_gethost()
@@ -499,6 +500,8 @@ class BatchSpawnerBase(Spawner):
                 self.job_id, self.ip, self.port
             )
         )
+
+        # TODO: make ssh connection to gw https://github.com/NERSC/sshspawner/blob/master/sshspawner/sshspawner.py
 
         return self.ip, self.port
 
@@ -1028,6 +1031,7 @@ class ARCSpawner(BatchSpawnerRegexStates):
     # TODO: user dir persistence
     # TODO: image selection
 
+
     batch_script = Unicode(dedent("""&
                             ( jobname = "session" )
                             ( executable = "/usr/bin/bash" )( arguments = "run.sh" )
@@ -1085,7 +1089,8 @@ class ARCSpawner(BatchSpawnerRegexStates):
 # {{epilogue}}
 # """
 
-    http_timeout = Integer(300, config=True, help="Timeout for HTTP requests")
+    http_timeout = Integer(1200, config=True, help="Timeout for HTTP requests")
+    start_timeout = Integer(300, config=True)
 
     # all these req_foo traits will be available as substvars for templated strings
     req_cluster = Unicode(
@@ -1158,27 +1163,104 @@ class ARCSpawner(BatchSpawnerRegexStates):
     def state_ispending(self):
         # Parse results of batch_query_cmd
         # Output determined by results of self.batch_query_cmd
-        self.log.info("\033[31mchecking pending from job_status: " + str(self.job_status) + "\033[0m")
-        self.log.info("\033[31mextracted job state: " + str(self.job_state) + "\033[0m")        
-        return self.job_status is None or self.job_state in ["Accepted", "Submitted", "Queuing", "Preparing"]
-
-
+        # self.log.debug("\033[31mchecking pending from job_status: " + str(self.job_status) + "\033[0m")
+        r = self.job_status is None or self.job_state in ["Accepted", "Submitted", "Queuing", "Preparing"]
+        self.log.info("\033[31mstate_ispending, job state: %s pending is %s\033[0m", self.job_state, r)
+        return r
+        
     def state_isrunning(self):
         # Parse results of batch_query_cmd
         # Output determined by results of self.batch_query_cmd
-        return self.job_state in ["Running"]
+        r = self.job_state in ["Running"]
+        self.log.info("\033[31mstate_isrunning, job state: %s running is %s\033[0m", self.job_state, r)
+        return r
     
+    def state_isready(self):
+        if self.job_state not in ["Running"]:
+            self.log.info("job state is not Running: not ready")
+            return False
+        
+        if not getattr(self, 'have_tunnel', False):
+            self.log.info("no tunnel: not ready")
+            return False
+
+        if not hasattr(self, 'host_ip'):
+            self.log.info("no host_ip: not ready")
+            return False
+        
+        if not hasattr(self, 'ssh_tunnel_connection'):
+            self.log.info("no remote ssh tunnel connection: not ready")
+            return False
+        
+        self.log.info("job is ready")
+        return True
+    
+    forward_gateway = Unicode(
+        "cgw.dev.ctaodc.ch",
+        help="Host used for SSH tunneling",
+    ).tag(config=True)
+
+    async def make_ssh_tunnel(self):
+        if hasattr(self, 'ssh_tunnel_connection'):
+            self.log.info("ssh tunnel already established: %s", self.ssh_tunnel_connection)
+        else:
+            self.log.info("\033[32mestablishing ssh tunnel to %s\033[0m", self.forward_gateway)
+            async with asyncssh.connect(self.forward_gateway,
+                                        # known_hosts="/etc/ssh_gw_known_hosts",
+                                        known_hosts=None,
+                                        client_keys=[
+                                            "/etc/forwardkey"
+                                            # (asyncssh.read_private_key("/etc/forwardkey"),
+                                            # asyncssh.read_certificate("/etc/forwardkey.pub"))
+                                            ],
+                                        username="forwarder"
+                                        ) as conn:
+                self.ssh_tunnel_connection = conn
+                self.log.info("SSH connection established: %s", conn)
+                listener = await conn.forward_local_port('127.0.0.1', self.anticipated_port, '127.0.0.1', self.anticipated_port)
+                self.log.info("Listening %s on port %s ", listener, listener.get_port())
+                await listener.wait_closed()
+                # self.log.info("SSH connection closed: %s", conn)
+                # del self.ssh_tunnel_connection
+
+            # try:
+            #     asyncio.get_event_loop().run_until_complete(run_client())
+        # except (OSError, asyncssh.Error) as exc:
+        #     sys.exit('SSH connection failed: ' + str(exc))
 
     def state_gethost(self):
-        self.port = int(re.search(r"http://127.0.0.1:(\d{4})/.*?/lab", self.job_log).group(1))
+        if (r := re.search(r'JPORT=(\d{4,5})', self.job_log)) is not None:
+            self.anticipated_port = int(r.group(1))
+            self.log.info("found anticipated port: %s", self.anticipated_port)
 
-        #TODO: get from config
-        return "cgw.dev.ctaodc.ch"
+        r = re.search(r"inet (\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3})/\d+? scope global hsn0", self.job_log)
+        if r is not None:
+            self.host_ip = r.group(1)
+
+        if re.search("Sending command: sleep 3600", self.job_log):
+            self.log.info("found sleep command in job log")
+            self.have_tunnel = True
+            
+        server_details = re.search(r"http://127.0.0.1:(?P<port>\d{4})/.*?/lab(?:\?token=(?P<token>[0-9a-z]*))?", self.job_log)
+
+        if server_details is None:
+            self.log.info("no server record found in '\033[33m%s\033[0m", "\n".join(self.job_log.split("\n")[-30:]))
+            return None
+        else:
+            self.port = int(server_details.group('port'))
+            self.server_token = server_details.group('token')
+
+            self.log.info("found server token: %s", self.server_token)
+
+            # return self.forward_gateway
+            return "127.0.0.1"
+        
+        
+    
 
     @default("req_homedir")
     def _req_homedir_default(self):
         return "/root"
-
 
     async def query_job_log(self):
         """Check job status, return JobStatus object."""
@@ -1194,24 +1276,41 @@ class ARCSpawner(BatchSpawnerRegexStates):
         except Exception as e:
             self.log.error("Error querying job " + self.job_id)
             self.job_log = ""
-        
 
     @async_generator
     async def progress(self):
         while True:
             if self.state_ispending():
+                # TODO: report cluster status and user details (dteam, etc)
                 await yield_(
                     {
-                        "message": f"Pending in queue, ARC status <b>{self.job_state}</b>",
+                        "message": (
+                            f"Pending in queue, ARC status {self.job_state} (timeout {self.start_timeout})"
+                        )
                     }
                 )
             elif self.state_isrunning():
-                await yield_(
-                    {
-                        "message": "Cluster job running... waiting to connect",
-                    }
-                )
-                return
+                if self.state_isready():
+                    await yield_(
+                        {
+                            "message": (
+                                f"Cluster job started... waiting to connect"
+                            ),
+                        }
+                    )
+                    return
+                else:                
+                    await yield_(
+                        {
+                            "message": (
+                                f"Cluster job running... waiting to see signs of life"
+                                f" host {getattr(self, 'host_ip', 'unknown')}"
+                                " tunnel" + (' READY' if getattr(self, 'have_tunnel', False) else ' NOT ready') + " "
+                                " tunnel port" + (' PLANNED' if hasattr(self, 'anticipated_port') else ' NOT planned yet')
+                            ),
+                        }
+                    )
+            
             else:
                 await yield_(
                     {
@@ -1219,3 +1318,97 @@ class ARCSpawner(BatchSpawnerRegexStates):
                     }
                 )
             await gen.sleep(1)
+
+    async def start(self):   
+        """Start the process"""
+
+        self.ip = self.traits()["ip"].default_value
+        self.port = self.traits()["port"].default_value
+
+        if self.server:
+            self.server.port = self.port
+
+        job = await self.submit_batch_script()
+
+        # We are called with a timeout, and if the timeout expires this function will
+        # be interrupted at the next yield, and self.stop() will be called.
+        # So this function should not return unless successful, and if unsuccessful
+        # should either raise and Exception or loop forever.
+        if len(self.job_id) == 0:
+            raise RuntimeError(
+                "Jupyter batch job submission failure (no jobid in output)"
+            )
+        while True:
+            self.log.info("\033[33mloop before running job\033[0m")
+
+            status = await self.query_job_status()
+            if status == JobStatus.RUNNING:
+                self.log.info("\033[33mBREAKING loop before running job since it's running\033[0m")
+                break
+            elif status == JobStatus.PENDING:
+                self.log.debug("Job " + self.job_id + " still pending")
+            elif status == JobStatus.UNKNOWN:
+                self.log.debug("Job " + self.job_id + " still unknown")
+            else:
+                self.log.warning(
+                    "Job "
+                    + self.job_id
+                    + " neither pending nor running.\n"
+                    + self.job_status
+                )
+                self.clear_state()
+                raise RuntimeError(
+                    "The Jupyter batch job has disappeared"
+                    " while pending in the queue or died immediately"
+                    " after starting."
+                )
+            await gen.sleep(self.startup_poll_interval)
+
+
+        while True:
+            self.log.info("\033[31mloop for running job\033[0m")
+            await self.query_job_log()
+
+            try:
+                self.state_gethost()
+                if self.port != self.traits()["port"].default_value:
+                    self.log.info(f"found ip {self.ip} and port {self.port} in log")
+
+                    if hasattr(self, 'anticipated_port'):
+                        self.log.info("\033[31mfound anticipated port: %s, will make remote ssh tunnel\033[0m", self.anticipated_port)
+                        asyncio.create_task(self.make_ssh_tunnel())
+                        break
+                    else:
+                        self.log.info("\033[31mno anticipated port yet, can not make remote tunnel\033[0m")
+            except Exception as e:
+                self.log.warn(f"failed to get ip: {e}")
+            else:
+                self.log.info("no ip in log yet")                
+
+            await gen.sleep(self.startup_poll_interval)
+
+        
+        self.ip = self.state_gethost()
+        
+        while self.port == 0:
+            await gen.sleep(self.startup_poll_interval)
+            # Test framework: For testing, mock_port is set because we
+            # don't actually run the single-user server yet.
+            if hasattr(self, "mock_port"):
+                self.port = self.mock_port
+
+        self.db.commit()
+        self.log.info(
+            "Notebook server job {0} started at {1}:{2}".format(
+                self.job_id, self.ip, self.port
+            )
+        )
+
+        # TODO: make ssh connection to gw https://github.com/NERSC/sshspawner/blob/master/sshspawner/sshspawner.py
+
+        # return self.ip, self.port
+        url = f"http://{self.ip}:{self.port}/lab?token={self.server_token}"
+
+        self.log.info("Spawner started job with full URL: " + url)
+
+        return url
