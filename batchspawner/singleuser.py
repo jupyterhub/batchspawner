@@ -7,6 +7,8 @@ from shutil import which
 from jupyterhub.utils import random_port, url_path_join
 from jupyterhub.services.auth import HubAuth
 
+from urllib.parse import urlparse, urlunparse
+
 import requests
 
 
@@ -33,6 +35,14 @@ def main(argv=None):
         json={"port": port},
         **kwargs,
     )
+
+    # Change the port number for the environment variable JUPYTERHUB_SERVICE_URL
+    url = urlparse(os.environ['JUPYTERHUB_SERVICE_URL'])
+    url_netloc = url.netloc.split(':')
+
+    if len(url_netloc) == 2:
+        url_netloc[1] = str(port)
+    os.environ["JUPYTERHUB_SERVICE_URL"] = urlunparse(url._replace(netloc=':'.join(url_netloc)))
 
     cmd_path = which(sys.argv[1])
     sys.argv = sys.argv[1:] + ["--port={}".format(port)]
