@@ -2,6 +2,7 @@
 # Copyright (c) Michael Gilbert
 # Distributed under the terms of the Modified BSD License.
 
+
 """Batch spawners
 
 This file contains an abstraction layer for batch job queueing systems, and implements
@@ -18,6 +19,7 @@ Common attributes of batch submission / resource manager environments will inclu
 import asyncio
 import subprocess
 import tempfile
+from textwrap import dedent
 from async_generator import async_generator, yield_
 import pwd
 import os
@@ -1020,34 +1022,43 @@ set -eu
 
 # class ARCSpawner(UserEnvMixin, BatchSpawnerRegexStates):
 class ARCSpawner(BatchSpawnerRegexStates):
-    batch_script = Unicode("""&
-( jobname = "session" )
-( executable = "/usr/bin/bash" )( arguments = "run.sh" )
-( inputfiles = 
-    ("run.sh" "/etc/run.sh")
-    ("fkdata" "/etc/forwardkey")
-    ("image.sif" "https://dcache.cta.cscs.ch:2880/lst/software/jh-cta-0ef5decc-gammapy-v1.0.sif") 
-)
-     (cpuTime="60")
-     (wallTime="60")
-(* maximal time for the session directory to exist on the remote node, days *)
-     (lifeTime="14")
- (* memory required for the job, per count, Mbytes *)
-     (Memory="200000")
-(* disk space required for the job, Mbytes *)
-     (*Disk="100000"*)
+    # TODO: new key on every connection
+    # TODO: handle token
 
- (count="1") 
- (countpernode="1") 
+    # TODO: user dir persistence
+    # TODO: image selection
 
-(* (exclusiveexecution="yes") *)
+    batch_script = Unicode(dedent("""&
+                            ( jobname = "session" )
+                            ( executable = "/usr/bin/bash" )( arguments = "run.sh" )
+                            ( environment = 
+                                ("JUPYTERHUB_SERVICE_PREFIX" "/user/{username}/")
+                            )
+                            ( inputfiles = 
+                                ("run.sh" "/etc/run.sh")
+                                ("fkdata" "/etc/forwardkey")
+                                ("image.sif" "https://dcache.cta.cscs.ch:2880/lst/software/jh-cta-0ef5decc-gammapy-v1.0.sif") 
+                            )
+                                (cpuTime="60")
+                                (wallTime="60")
+                            (* maximal time for the session directory to exist on the remote node, days *)
+                                (lifeTime="14")
+                            (* memory required for the job, per count, Mbytes *)
+                                (Memory="200000")
+                            (* disk space required for the job, Mbytes *)
+                                (*Disk="100000"*)
 
-( stdout = "stdout" )
+                            (count="1") 
+                            (countpernode="1") 
 
-( queue="normal" )
+                            (* (exclusiveexecution="yes") *)
 
-( join = "yes" ) 
-( gmlog = "gmlog" ) """).tag(config=True)
+                            ( stdout = "stdout" )
+
+                            ( queue="normal" )
+
+                            ( join = "yes" ) 
+                            ( gmlog = "gmlog" ) """)).tag(config=True)
 
                
 # """
@@ -1148,7 +1159,8 @@ class ARCSpawner(BatchSpawnerRegexStates):
         # Parse results of batch_query_cmd
         # Output determined by results of self.batch_query_cmd
         self.log.info("\033[31mchecking pending from job_status: " + str(self.job_status) + "\033[0m")
-        return self.job_status is None or self.job_state in ["Accepted", "Submitted", "Queuing"]
+        self.log.info("\033[31mextracted job state: " + str(self.job_state) + "\033[0m")        
+        return self.job_status is None or self.job_state in ["Accepted", "Submitted", "Queuing", "Preparing"]
 
 
     def state_isrunning(self):
@@ -1158,10 +1170,10 @@ class ARCSpawner(BatchSpawnerRegexStates):
     
 
     def state_gethost(self):
-        self.port = int(re.search(r"http://127.0.0.1:(\d{4})/lab?", self.job_log).group(1))
+        self.port = int(re.search(r"http://127.0.0.1:(\d{4})/.*?/lab", self.job_log).group(1))
 
-        return "148.187.151.63"
         #TODO: get from config
+        return "cgw.dev.ctaodc.ch"
 
     @default("req_homedir")
     def _req_homedir_default(self):
@@ -1183,3 +1195,27 @@ class ARCSpawner(BatchSpawnerRegexStates):
             self.log.error("Error querying job " + self.job_id)
             self.job_log = ""
         
+
+    @async_generator
+    async def progress(self):
+        while True:
+            if self.state_ispending():
+                await yield_(
+                    {
+                        "message": f"Pending in queue, ARC status <b>{self.job_state}</b>",
+                    }
+                )
+            elif self.state_isrunning():
+                await yield_(
+                    {
+                        "message": "Cluster job running... waiting to connect",
+                    }
+                )
+                return
+            else:
+                await yield_(
+                    {
+                        "message": "Unknown status...",
+                    }
+                )
+            await gen.sleep(1)
