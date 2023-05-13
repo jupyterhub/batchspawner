@@ -1,6 +1,7 @@
 import os
 import sys
 
+from urllib.parse import urlparse
 from runpy import run_path
 from shutil import which
 
@@ -34,8 +35,15 @@ def main(argv=None):
         **kwargs,
     )
 
+    # Read the env var JUPYTERHUB_SERVICE_URL and replace port in the URL
+    # with free port that we found here
+    url = urlparse(os.environ.get("JUPYTERHUB_SERVICE_URL", ""))
+    # Updated URL. We are effectively passing the port arg via env var
+    if url.hostname:
+        os.environ["JUPYTERHUB_SERVICE_URL"] = f"{url.scheme}://{url.hostname}:{port}{url.path}"
+
     cmd_path = which(sys.argv[1])
-    sys.argv = sys.argv[1:] + ["--port={}".format(port)]
+    sys.argv = sys.argv[1:]
     run_path(cmd_path, run_name="__main__")
 
 
