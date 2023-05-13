@@ -40,7 +40,9 @@ def main(argv=None):
     url = urlparse(os.environ.get("JUPYTERHUB_SERVICE_URL", ""))
     # Updated URL. We are effectively passing the port arg via env var
     if url.hostname:
-        os.environ["JUPYTERHUB_SERVICE_URL"] = f"{url.scheme}://{url.hostname}:{port}{url.path}"
+        os.environ[
+            "JUPYTERHUB_SERVICE_URL"
+        ] = f"{url.scheme}://{url.hostname}:{port}{url.path}"
 
     cmd_path = which(sys.argv[1])
     sys.argv = sys.argv[1:]
