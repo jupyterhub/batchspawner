@@ -1031,38 +1031,47 @@ class ARCSpawner(BatchSpawnerRegexStates):
     # TODO: user dir persistence
     # TODO: image selection
 
+    def env_string(self):
+        env = ""
+        for key, value in self.get_env().items():
+            if '"' not in value:
+                env += '("{}" "{}")\n'.format(key, value.replace('"', '\\"'))
+            # break
+        return env
 
-    batch_script = Unicode(dedent("""&
-                            ( jobname = "session" )
-                            ( executable = "/usr/bin/bash" )( arguments = "run.sh" )
-                            ( environment = 
-                                ("JUPYTERHUB_SERVICE_PREFIX" "/user/{username}/")
-                            )
-                            ( inputfiles = 
-                                ("run.sh" "/etc/run.sh")
-                                ("fkdata" "/etc/forwardkey")
-                                ("image.sif" "https://dcache.cta.cscs.ch:2880/lst/software/jh-cta-0ef5decc-gammapy-v1.0.sif") 
-                            )
-                                (cpuTime="60")
-                                (wallTime="60")
-                            (* maximal time for the session directory to exist on the remote node, days *)
-                                (lifeTime="14")
-                            (* memory required for the job, per count, Mbytes *)
-                                (Memory="200000")
-                            (* disk space required for the job, Mbytes *)
-                                (*Disk="100000"*)
+    @property
+    def batch_script(self):
+        return f"""&
+                ( jobname = "session" )
+                ( executable = "/usr/bin/bash" )( arguments = "run.sh" )
+                ( environment = 
+                    {self.env_string()}
+                )
+                ( inputfiles = 
+                    ("run.sh" "/etc/run.sh")
+                    ("fkdata" "/etc/forwardkey")
+                    ("image.sif" "https://dcache.cta.cscs.ch:2880/lst/software/odahub_jh-lst_b0a1c6cc.sif") 
+                )
+                    (cpuTime="60")
+                    (wallTime="60")
+                (* maximal time for the session directory to exist on the remote node, days *)
+                    (lifeTime="14")
+                (* memory required for the job, per count, Mbytes *)
+                    (Memory="200000")
+                (* disk space required for the job, Mbytes *)
+                    (*Disk="100000"*)
 
-                            (count="1") 
-                            (countpernode="1") 
+                (count="1") 
+                (countpernode="1") 
 
-                            (* (exclusiveexecution="yes") *)
+                (* (exclusiveexecution="yes") *)
 
-                            ( stdout = "stdout" )
+                ( stdout = "stdout" )
 
-                            ( queue="normal" )
+                ( queue="normal" )
 
-                            ( join = "yes" ) 
-                            ( gmlog = "gmlog" ) """)).tag(config=True)
+                ( join = "yes" ) 
+                ( gmlog = "gmlog" ) """
 
                
 # """
