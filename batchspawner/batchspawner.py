@@ -1035,6 +1035,7 @@ class ARCSpawner(BatchSpawnerRegexStates):
         env = ""
         for key, value in self.get_env().items():
             if '"' not in value:
+                value = value.replace("http://hub:8081/hub", "https://platform-noir.dev.ctaodc.ch/hub")
                 env += '("{}" "{}")\n'.format(key, value.replace('"', '\\"'))
             # break
         return env
