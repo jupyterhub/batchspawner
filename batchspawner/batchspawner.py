@@ -17,12 +17,14 @@ Common attributes of batch submission / resource manager environments will inclu
   * job names instead of PIDs
 """
 import asyncio
+import random
 import subprocess
 import tempfile
 from textwrap import dedent
 from async_generator import async_generator, yield_
 import asyncio, asyncssh, sys
 import pwd
+import time
 import os
 import re
 
@@ -1034,10 +1036,18 @@ class ARCSpawner(BatchSpawnerRegexStates):
     def env_string(self):
         env = ""
         for key, value in self.get_env().items():
-            if '"' not in value:
-                value = value.replace("http://hub:8081/hub", "https://platform-noir.dev.ctaodc.ch/hub")
-                env += '("{}" "{}")\n'.format(key, value.replace('"', '\\"'))
-            # break
+            value = value.replace("http://hub:8081/hub", "https://platform-noir.dev.ctaodc.ch/hub")
+            #if key in ["JUPYTERHUB_SERVICE_PREFIX", "JUPYTERHUB_SERVICE_URL"]:
+            #    value = value.replace("/user", "/hub/user")
+            env += '("{}" ^@{}@)\n'.format(key, value)
+        return env
+    
+    def get_env(self):
+        env = super().get_env()
+
+        env['JUPYTER_PORT'] = str(self.port)
+        env['JUPYTERHUB_BASE_URL'] = 'https://platform-noir.dev.ctaodc.ch/'
+        env['CTADS_URL'] = 'https://platform-noir.dev.ctaodc.ch/services/downloadservice/'
         return env
 
     @property
@@ -1051,7 +1061,7 @@ class ARCSpawner(BatchSpawnerRegexStates):
                 ( inputfiles = 
                     ("run.sh" "/etc/run.sh")
                     ("fkdata" "/etc/forwardkey")
-                    ("image.sif" "https://dcache.cta.cscs.ch:2880/lst/software/odahub_jh-lst_b0a1c6cc.sif") 
+                    ("image.sif" "https://dcache.cta.cscs.ch:2880/lst/software/jh-lst.sif") 
                 )
                     (cpuTime="60")
                     (wallTime="60")
@@ -1198,9 +1208,9 @@ class ARCSpawner(BatchSpawnerRegexStates):
             self.log.info("no host_ip: not ready")
             return False
         
-        if not hasattr(self, 'ssh_tunnel_connection'):
-            self.log.info("no remote ssh tunnel connection: not ready")
-            return False
+        #if not hasattr(self, 'ssh_tunnel_connection'):
+        #    self.log.info("no remote ssh tunnel connection: not ready")
+        #    return False
         
         self.log.info("job is ready")
         return True
@@ -1211,10 +1221,11 @@ class ARCSpawner(BatchSpawnerRegexStates):
     ).tag(config=True)
 
     async def make_ssh_tunnel(self):
+        self.log.info("\033[32mtrying to establish ssh tunnel to %s\033[0m", self.forward_gateway, self.port)
         if hasattr(self, 'ssh_tunnel_connection'):
             self.log.info("ssh tunnel already established: %s", self.ssh_tunnel_connection)
         else:
-            self.log.info("\033[32mestablishing ssh tunnel to %s\033[0m", self.forward_gateway)
+            self.log.info("\033[32mestablishing ssh tunnel to %s\033[0m", self.forward_gateway, self.port)
             async with asyncssh.connect(self.forward_gateway,
                                         # known_hosts="/etc/ssh_gw_known_hosts",
                                         known_hosts=None,
@@ -1226,9 +1237,10 @@ class ARCSpawner(BatchSpawnerRegexStates):
                                         username="forwarder"
                                         ) as conn:
                 self.ssh_tunnel_connection = conn
-                self.log.info("SSH connection established: %s", conn)
-                listener = await conn.forward_local_port('127.0.0.1', self.anticipated_port, '127.0.0.1', self.anticipated_port)
-                self.log.info("Listening %s on port %s ", listener, listener.get_port())
+                self.log.info("SSH connection established: %s will make forward to %s", conn, self.port)
+                listener = await conn.forward_local_port('0.0.0.0', self.port, '0.0.0.0', self.port)
+                #listener = await conn.forward_local_port('127.0.0.1', self.port, '127.0.0.1', self.port)
+                self.log.info("\033[31mListening %s on port %s\033[0m", listener, listener.get_port())
                 await listener.wait_closed()
                 # self.log.info("SSH connection closed: %s", conn)
                 # del self.ssh_tunnel_connection
@@ -1295,7 +1307,7 @@ class ARCSpawner(BatchSpawnerRegexStates):
                 await yield_(
                     {
                         "message": (
-                            f"Pending in queue, ARC status {self.job_state} (timeout {self.start_timeout})"
+                            f"Pending in queue, ARC status {self.job_state} (timeout in {int(self.start_timeout - time.time() + self.tstart)})"
                         )
                     }
                 )
@@ -1313,8 +1325,9 @@ class ARCSpawner(BatchSpawnerRegexStates):
                     await yield_(
                         {
                             "message": (
-                                f"Cluster job running... waiting to see signs of life"
-                                f" host {getattr(self, 'host_ip', 'unknown')}"
+                                f"Cluster job running... waiting to see signs of life;"
+                                " host " + (' ASSIGNED' if hasattr(self, 'host_ip') else ' NOT assigned') + " "
+                                #f" host {getattr(self, 'host_ip', 'unknown')}"
                                 " tunnel" + (' READY' if getattr(self, 'have_tunnel', False) else ' NOT ready') + " "
                                 " tunnel port" + (' PLANNED' if hasattr(self, 'anticipated_port') else ' NOT planned yet')
                             ),
@@ -1333,10 +1346,19 @@ class ARCSpawner(BatchSpawnerRegexStates):
         """Start the process"""
 
         self.ip = self.traits()["ip"].default_value
-        self.port = self.traits()["port"].default_value
+        #self.port = self.traits()["port"].default_value
+
+        self.port = random.randint(8700, 8999)
+
+        self.tstart = time.time()
 
         if self.server:
             self.server.port = self.port
+                        
+        self.log.info("\033[31mwill create tunnel task\033[0m")
+        #await self.make_ssh_tunnel()
+        self.ssh_tunnel_task = asyncio.create_task(self.make_ssh_tunnel())
+        self.log.info("\033[31mcreated tunnel task %s\033[0m", self.ssh_tunnel_task)
 
         job = await self.submit_batch_script()
 
@@ -1386,7 +1408,6 @@ class ARCSpawner(BatchSpawnerRegexStates):
 
                     if hasattr(self, 'anticipated_port'):
                         self.log.info("\033[31mfound anticipated port: %s, will make remote ssh tunnel\033[0m", self.anticipated_port)
-                        asyncio.create_task(self.make_ssh_tunnel())
                         break
                     else:
                         self.log.info("\033[31mno anticipated port yet, can not make remote tunnel\033[0m")
@@ -1398,7 +1419,10 @@ class ARCSpawner(BatchSpawnerRegexStates):
             await gen.sleep(self.startup_poll_interval)
 
         
-        self.ip = self.state_gethost()
+        #self.ip = "127.0.0.1" #self.state_gethost()
+        self.ip = "148.187.151.63" #self.state_gethost()
+        self.port = self.anticipated_port
+        self.server.port = self.anticipated_port
         
         while self.port == 0:
             await gen.sleep(self.startup_poll_interval)
@@ -1414,11 +1438,13 @@ class ARCSpawner(BatchSpawnerRegexStates):
             )
         )
 
-        # TODO: make ssh connection to gw https://github.com/NERSC/sshspawner/blob/master/sshspawner/sshspawner.py
+        return self.ip, self.port
+        #url = f"http://{self.ip}:{self.port}/lab?token={self.server_token}"
 
-        # return self.ip, self.port
-        url = f"http://{self.ip}:{self.port}/lab?token={self.server_token}"
+        #self.log.info("Spawner started job with full URL: " + url)
 
-        self.log.info("Spawner started job with full URL: " + url)
+        #return url
 
-        return url
+    async def cancel_batch_job(self):
+        await super().cancel_batch_job()
+        self.ssh_tunnel_task.cancel()
