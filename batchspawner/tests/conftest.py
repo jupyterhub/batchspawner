@@ -2,9 +2,9 @@
 
 # We only use "db" and "io_loop", but we also need event_loop which is used by
 # io_loop to be available with jupyterhub 1+.
-from jupyterhub.tests.conftest import db, io_loop
+from jupyterhub.tests.conftest import db, io_loop  # noqa
 
 try:
-    from jupyterhub.tests.conftest import event_loop
+    from jupyterhub.tests.conftest import event_loop  # noqa
 except:
     pass

@@ -27,9 +27,9 @@ def main(argv=None):
     if hub_auth.client_ca:
         kwargs["verify"] = hub_auth.client_ca
 
-    r = requests.post(
+    requests.post(
         url,
-        headers={"Authorization": f"token {hub_auth.api_token}"},
+        headers=headers,
         json={"port": port},
         **kwargs,
     )
