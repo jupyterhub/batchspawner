@@ -26,8 +26,6 @@ from enum import Enum
 
 from jinja2 import Template
 
-from tornado import gen
-
 from jupyterhub.spawner import Spawner
 from traitlets import Integer, Unicode, Float, Dict, default
 
@@ -448,11 +446,11 @@ class BatchSpawnerBase(Spawner):
                     " while pending in the queue or died immediately"
                     " after starting."
                 )
-            await gen.sleep(self.startup_poll_interval)
+            await asyncio.sleep(self.startup_poll_interval)
 
         self.ip = self.state_gethost()
         while self.port == 0:
-            await gen.sleep(self.startup_poll_interval)
+            await asyncio.sleep(self.startup_poll_interval)
             # Test framework: For testing, mock_port is set because we
             # don't actually run the single-user server yet.
             if hasattr(self, "mock_port"):
@@ -481,7 +479,7 @@ class BatchSpawnerBase(Spawner):
             status = await self.query_job_status()
             if status not in (JobStatus.RUNNING, JobStatus.UNKNOWN):
                 return
-            await gen.sleep(1.0)
+            await asyncio.sleep(1)
         if self.job_id:
             self.log.warning(
                 "Notebook server job {0} at {1}:{2} possibly failed to terminate".format(
@@ -498,7 +496,7 @@ class BatchSpawnerBase(Spawner):
                 return
             else:
                 yield {"message": "Unknown status..."}
-            await gen.sleep(1)
+            await asyncio.sleep(1)
 
 
 class BatchSpawnerRegexStates(BatchSpawnerBase):
