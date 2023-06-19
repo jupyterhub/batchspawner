@@ -1,13 +1,11 @@
 import os
 import sys
-
 from runpy import run_path
 from shutil import which
 
-from jupyterhub.utils import random_port, url_path_join
-from jupyterhub.services.auth import HubAuth
-
 import requests
+from jupyterhub.services.auth import HubAuth
+from jupyterhub.utils import random_port, url_path_join
 
 
 def main(argv=None):
@@ -35,7 +33,7 @@ def main(argv=None):
     )
 
     cmd_path = which(sys.argv[1])
-    sys.argv = sys.argv[1:] + ["--port={}".format(port)]
+    sys.argv = sys.argv[1:] + [f"--port={port}"]
     run_path(cmd_path, run_name="__main__")
 
 

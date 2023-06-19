@@ -4,11 +4,11 @@ import asyncio
 import re
 import time
 
+import pytest
 from jupyterhub import orm
 from jupyterhub.objects import Hub, Server
 from jupyterhub.user import User
 from traitlets import Unicode
-import pytest
 
 from .. import BatchSpawnerRegexStates, JobStatus
 
@@ -41,7 +41,7 @@ class BatchDummy(BatchSpawnerRegexStates):
                 print("run:", run_re)
                 assert (
                     run_re.search(cmd) is not None
-                ), "Failed test: re={0} cmd={1}".format(run_re, cmd)
+                ), f"Failed test: re={run_re} cmd={cmd}"
         # Run command normally
         out = await super().run_command(*args, **kwargs)
         # Test that the command matches the expectations
@@ -51,7 +51,7 @@ class BatchDummy(BatchSpawnerRegexStates):
                 print("out:", out_re)
                 assert (
                     out_re.search(cmd) is not None
-                ), "Failed output: re={0} cmd={1} out={2}".format(out_re, cmd, out)
+                ), f"Failed output: re={out_re} cmd={cmd} out={out}"
         return out
 
 
@@ -282,10 +282,10 @@ async def run_spawner_script(
             # Test the input
             run_re = cmd_expectlist.pop(0)
             if run_re:
-                print('run: "{}"   [{}]'.format(cmd, run_re))
+                print(f'run: "{cmd}"   [{run_re}]')
                 assert (
                     run_re.search(cmd) is not None
-                ), "Failed test: re={0} cmd={1}".format(run_re, cmd)
+                ), f"Failed test: re={run_re} cmd={cmd}"
             # Test the stdin - will only be the batch script.  For
             # each regular expression in batch_script_re_list, assert that
             # each re in that list matches the batch script.
@@ -294,7 +294,7 @@ async def run_spawner_script(
                 for match_re in batch_script_re_list:
                     assert (
                         match_re.search(batch_script) is not None
-                    ), "Batch script does not match {}".format(match_re)
+                    ), f"Batch script does not match {match_re}"
             # Return expected output.
             out = out_list.pop(0)
             print("  --> " + out)
@@ -345,11 +345,11 @@ async def test_torque(db, event_loop):
         ),  # pending
         (
             re.compile(r"sudo.*qstat"),
-            "<job_state>R</job_state><exec_host>{}/1</exec_host>".format(testhost),
+            f"<job_state>R</job_state><exec_host>{testhost}/1</exec_host>",
         ),  # running
         (
             re.compile(r"sudo.*qstat"),
-            "<job_state>R</job_state><exec_host>{}/1</exec_host>".format(testhost),
+            f"<job_state>R</job_state><exec_host>{testhost}/1</exec_host>",
         ),  # running
         (re.compile(r"sudo.*qdel"), "STOP"),
         (re.compile(r"sudo.*qstat"), ""),
@@ -387,11 +387,11 @@ async def test_moab(db, event_loop):
         (re.compile(r"sudo.*mdiag"), 'State="Idle"'),  # pending
         (
             re.compile(r"sudo.*mdiag"),
-            'State="Running" AllocNodeList="{}"'.format(testhost),
+            f'State="Running" AllocNodeList="{testhost}"',
         ),  # running
         (
             re.compile(r"sudo.*mdiag"),
-            'State="Running" AllocNodeList="{}"'.format(testhost),
+            f'State="Running" AllocNodeList="{testhost}"',
         ),  # running
         (re.compile(r"sudo.*mjobctl.*-c"), "STOP"),
         (re.compile(r"sudo.*mdiag"), ""),
@@ -429,11 +429,11 @@ async def test_pbs(db, event_loop):
         (re.compile(r"sudo.*qstat"), "job_state = Q"),  # pending
         (
             re.compile(r"sudo.*qstat"),
-            "job_state = R\nexec_host = {}/2*1".format(testhost),
+            f"job_state = R\nexec_host = {testhost}/2*1",
         ),  # running
         (
             re.compile(r"sudo.*qstat"),
-            "job_state = R\nexec_host = {}/2*1".format(testhost),
+            f"job_state = R\nexec_host = {testhost}/2*1",
         ),  # running
         (re.compile(r"sudo.*qdel"), "STOP"),
         (re.compile(r"sudo.*qstat"), ""),
@@ -556,11 +556,11 @@ async def test_condor(db, event_loop):
     script = [
         (
             re.compile(r"sudo.*condor_submit"),
-            "submitted to cluster {}".format(str(testjob)),
+            f"submitted to cluster {str(testjob)}",
         ),
         (re.compile(r"sudo.*condor_q"), "1,"),  # pending
-        (re.compile(r"sudo.*condor_q"), "2, @{}".format(testhost)),  # runing
-        (re.compile(r"sudo.*condor_q"), "2, @{}".format(testhost)),
+        (re.compile(r"sudo.*condor_q"), f"2, @{testhost}"),  # runing
+        (re.compile(r"sudo.*condor_q"), f"2, @{testhost}"),
         (re.compile(r"sudo.*condor_rm"), "STOP"),
         (re.compile(r"sudo.*condor_q"), ""),
     ]
@@ -594,11 +594,11 @@ async def test_lfs(db, event_loop):
     script = [
         (
             re.compile(r"sudo.*bsub"),
-            "Job <{}> is submitted to default queue <normal>".format(str(testjob)),
+            f"Job <{str(testjob)}> is submitted to default queue <normal>",
         ),
         (re.compile(r"sudo.*bjobs"), "PEND "),  # pending
-        (re.compile(r"sudo.*bjobs"), "RUN {}".format(testhost)),  # running
-        (re.compile(r"sudo.*bjobs"), "RUN {}".format(testhost)),
+        (re.compile(r"sudo.*bjobs"), f"RUN {testhost}"),  # running
+        (re.compile(r"sudo.*bjobs"), f"RUN {testhost}"),
         (re.compile(r"sudo.*bkill"), "STOP"),
         (re.compile(r"sudo.*bjobs"), ""),
     ]
