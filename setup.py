@@ -43,6 +43,7 @@ setup(
             "pytest",
             "pytest-asyncio",
             "pytest-cov",
+            "notebook",
         ],
     },
 )
