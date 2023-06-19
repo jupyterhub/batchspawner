@@ -70,7 +70,7 @@ jobs:
 
       - name: pytest
         run: |
-          pytest --verbose --color=yes --last-failed --cov batchspawner batchspawner/tests
+          pytest --cov=batchspawner
 
       # GitHub action reference: https://github.com/codecov/codecov-action
       - uses: codecov/codecov-action@v3
