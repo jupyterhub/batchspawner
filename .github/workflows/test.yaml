@@ -1,5 +1,5 @@
 # This is a GitHub workflow defining a set of jobs with a set of steps.
-# ref: https://docs.github.com/en/free-pro-team@latest/actions/reference/workflow-syntax-for-github-actions
+# ref: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions
 #
 name: Test
 
@@ -7,15 +7,13 @@ on:
   pull_request:
     paths-ignore:
       - "**.md"
-      - "**.yml"
-      - "**.yaml"
-      - "!.github/workflows/test.yml"
+      - ".github/workflows/*.yaml"
+      - "!.github/workflows/test.yaml"
   push:
     paths-ignore:
       - "**.md"
-      - "**.yml"
-      - "**.yaml"
-      - "!.github/workflows/test.yml"
+      - ".github/workflows/*.yaml"
+      - "!.github/workflows/test.yaml"
     branches-ignore:
       - "dependabot/**"
       - "pre-commit-ci-update-config"
@@ -24,65 +22,55 @@ on:
 
 jobs:
   pytest:
-    name: "Run pytest"
-    runs-on: ubuntu-20.04
-    continue-on-error: ${{ matrix.allow_failure }}
+    name: Run pytest
+    runs-on: ubuntu-22.04
+
     strategy:
-      # Keep running even if one variation of the job fail
       fail-fast: false
       matrix:
-        python-version:
-          - "3.6"
-          - "3.10"
-        JHUB_VER:
-          - "1.0.0"
-          - "1.5.1"
-          - "2.3.1"
-        allow_failure: [false]
-
-        exclude:
-          # JupyterHub 1.3.0 requires python 3.6+
-          - JHUB_VER: "1.3.0"
-            python-version: "3.5"
-          # JupyterHub 0.9.6 used a deprecated sqlalchemy feature removed in py3.9 environment
-          - JHUB_VER: "0.9.6"
-            python-version: "3.9"
         include:
-          - JHUB_VER: "main"
-            python-version: "3.9"
-            allow_failure: true
-          - JHUB_VER: "3.0.0"
-            python-version: "3.9"
-            allow_failure: true
+          # test oldest supported version
+          - python-version: "3.7"
+            pip-install-spec: "jupyterhub==1.5.1 sqlalchemy==1.*"
+
+          - python-version: "3.8"
+            pip-install-spec: "jupyterhub==2.* sqlalchemy==1.*"
+          - python-version: "3.10"
+            pip-install-spec: "jupyterhub==3.*"
+          - python-version: "3.11"
+            pip-install-spec: "jupyterhub==4.*"
+
+          # test unreleased jupyterhub, failures tolerated
+          - python-version: "3.X"
+            pip-install-spec: "git+https://github.com/jupyterhub/jupyterhub"
+            allow-failure: true
 
     steps:
       - uses: actions/checkout@v3
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: "18"
+      - uses: actions/setup-python@v4
         with:
           python-version: "${{ matrix.python-version }}"
 
-      - name: Install dependencies
+      - name: Install Node dependencies
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install pytest
-          pip install -r requirements.txt
-          pip list
+          npm install -g configurable-http-proxy
 
-      - name: Install nodejs dependencies
+      - name: Install Python dependencies
         run: |
-          sudo npm install -g configurable-http-proxy
+          pip install --upgrade pip
+          pip install ${{ matrix.pip-install-spec }}
+          pip install -e ".[test]"
 
-      # We need to check compatibility with different versions of the JH API,
-      # including latest development.  For that, we also need to pull in the
-      # development dependencies of that old JH version (but we don't need
-      # conda/npm for our tests).
-      - name: install JupyterHub
+      - name: List dependencies
         run: |
-          git clone --quiet --branch ${{ matrix.JHUB_VER }} https://github.com/jupyterhub/jupyterhub.git ./jupyterhub
-          pip install -r ./jupyterhub/dev-requirements.txt
-          pip install ./jupyterhub
+          pip freeze
 
       - name: pytest
         run: |
           pytest --verbose --color=yes --last-failed --cov batchspawner batchspawner/tests
+
+      # GitHub action reference: https://github.com/codecov/codecov-action
+      - uses: codecov/codecov-action@v3
