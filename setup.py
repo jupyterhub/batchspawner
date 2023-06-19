@@ -35,7 +35,6 @@ setup(
     },
     python_requires=">=3.7",
     install_require={
-        "async_generator>=1.8",
         "jinja2",
         "jupyterhub>=1.5.1",
     },

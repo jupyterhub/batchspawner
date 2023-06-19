@@ -16,7 +16,6 @@ Common attributes of batch submission / resource manager environments will inclu
   * job names instead of PIDs
 """
 import asyncio
-from async_generator import async_generator, yield_
 import pwd
 import os
 import re
@@ -490,28 +489,15 @@ class BatchSpawnerBase(Spawner):
                 )
             )
 
-    @async_generator
     async def progress(self):
         while True:
             if self.state_ispending():
-                await yield_(
-                    {
-                        "message": "Pending in queue...",
-                    }
-                )
+                yield {"message": "Pending in queue..."}
             elif self.state_isrunning():
-                await yield_(
-                    {
-                        "message": "Cluster job running... waiting to connect",
-                    }
-                )
+                yield {"message": "Cluster job running... waiting to connect"}
                 return
             else:
-                await yield_(
-                    {
-                        "message": "Unknown status...",
-                    }
-                )
+                yield {"message": "Unknown status..."}
             await gen.sleep(1)
 
 
