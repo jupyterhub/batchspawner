@@ -42,6 +42,7 @@ target_version = [
 #
 [tool.pytest.ini_options]
 addopts = "--verbose --color=yes --durations=10"
+asyncio_mode = "auto"
 testpaths = ["batchspawner/tests"]
 
 
