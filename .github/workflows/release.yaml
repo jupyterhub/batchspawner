@@ -1,21 +1,42 @@
-# This workflows will upload a Python Package using Twine when a release is created
-# For more information see: https://help.github.com/en/actions/language-and-framework-guides/using-python-with-github-actions#publishing-to-package-registries
+# This is a GitHub workflow defining a set of jobs with a set of steps. ref:
+# https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions
 #
-name: Upload Python Package
+name: Release
 
+# Always tests wheel building, but only publish to PyPI on pushed tags.
 on:
-  release:
-    types: [released]
+  pull_request:
+    paths-ignore:
+      - "docs/**"
+      - ".github/workflows/*.yaml"
+      - "!.github/workflows/release.yaml"
+  push:
+    paths-ignore:
+      - "docs/**"
+      - ".github/workflows/*.yaml"
+      - "!.github/workflows/release.yaml"
+    branches-ignore:
+      - "dependabot/**"
+      - "pre-commit-ci-update-config"
+    tags: ["**"]
+  workflow_dispatch:
 
 jobs:
-  deploy:
-    runs-on: ubuntu-latest
+  build-release:
+    runs-on: ubuntu-22.04
+    permissions:
+      # id-token=write is required for pypa/gh-action-pypi-publish, and the PyPI
+      # project needs to be configured to trust this workflow.
+      #
+      # ref: https://github.com/jupyterhub/team-compass/issues/648
+      #
+      id-token: write
 
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.x"
+          python-version: "3.11"
 
       - name: install build package
         run: |
@@ -27,12 +48,7 @@ jobs:
         run: |
           python -m build --sdist --wheel .
           ls -l dist
-          sha256sum dist/* | tee SHA256SUMS
 
-      - name: Publish to PyPI
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
-        run: |
-          pip install twine
-          twine upload --skip-existing dist/*
+      - name: publish to pypi
+        uses: pypa/gh-action-pypi-publish@release/v1
+        if: startsWith(github.ref, 'refs/tags/')
