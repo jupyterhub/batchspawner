@@ -3,18 +3,13 @@ from setuptools import setup
 with open("README.md") as f:
     long_description = f.read()
 
-# Get the current package version.
-version_ns = {}
-with open("version.py") as f:
-    exec(f.read(), {}, version_ns)
-
 setup(
     name="batchspawner",
     entry_points={
         "console_scripts": ["batchspawner-singleuser=batchspawner.singleuser:main"],
     },
     packages=["batchspawner"],
-    version=version_ns["__version__"],
+    version="1.3.0.dev",
     description="""Batchspawner: A spawner for Jupyterhub to spawn notebooks using batch resource managers.""",
     long_description=long_description,
     long_description_content_type="text/markdown",
