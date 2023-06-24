@@ -52,7 +52,7 @@ testpaths = ["batchspawner/tests"]
 # ref: https://github.com/your-tools/tbump#readme
 #
 [tool.tbump]
-github_url = "https://github.com/jupyterhub/tmpauthenticator"
+github_url = "https://github.com/jupyterhub/batchspawner"
 
 [tool.tbump.version]
 current = "1.3.0.dev"
