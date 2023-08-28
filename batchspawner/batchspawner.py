@@ -96,7 +96,7 @@ class BatchSpawnerBase(Spawner):
     exec_prefix = Unicode(
         "",
         # "sudo -E -u {username}",
-        help="Standard executon prefix (e.g. the default sudo -E -u {username})",
+        help="Standard execution prefix (e.g. the default sudo -E -u {username})",
     ).tag(config=True)
 
     # all these req_foo traits will be available as substvars for templated strings
