@@ -42,9 +42,19 @@ target_version = [
 # ref: https://docs.pytest.org/en/stable/
 #
 [tool.pytest.ini_options]
-addopts = "--verbose --color=yes --durations=10"
+addopts = "--verbose --color=yes --durations=10 --cov=batchspawner"
 asyncio_mode = "auto"
 testpaths = ["batchspawner/tests"]
+
+
+# pytest-cov / coverage is used to measure code coverage of tests
+#
+# ref: https://coverage.readthedocs.io/en/stable/config.html
+#
+[tool.coverage.run]
+omit = [
+    "batchspawner/tests/*",
+]
 
 
 # tbump is used to simplify and standardize the release process when updating
