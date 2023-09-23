@@ -23,20 +23,23 @@ on:
 jobs:
   pytest:
     name: Run pytest
-    runs-on: ubuntu-22.04
+    runs-on: ${{ matrix.runs-on || 'ubuntu-22.04' }}
 
     strategy:
       fail-fast: false
       matrix:
         include:
           # test oldest supported version
-          - python-version: "3.7"
+          - python-version: "3.6"
             pip-install-spec: "jupyterhub==1.5.1 sqlalchemy==1.*"
+            runs-on: ubuntu-20.04 # python 3.6 is only available in 20.04
 
-          - python-version: "3.8"
+          - python-version: "3.7"
             pip-install-spec: "jupyterhub==2.* sqlalchemy==1.*"
-          - python-version: "3.10"
+          - python-version: "3.8"
             pip-install-spec: "jupyterhub==3.*"
+          - python-version: "3.10"
+            pip-install-spec: "jupyterhub==4.*"
           - python-version: "3.11"
             pip-install-spec: "jupyterhub==4.*"
 

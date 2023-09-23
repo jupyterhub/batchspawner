@@ -28,6 +28,7 @@ profile = "black"
 #
 [tool.black]
 target_version = [
+    "py36",
     "py37",
     "py38",
     "py39",
