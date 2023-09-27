@@ -1026,13 +1026,13 @@ set -eu
 
 
 
-# class ARCSpawner(UserEnvMixin, BatchSpawnerRegexStates):
 class ARCSpawner(BatchSpawnerRegexStates):
     # TODO: new key on every connection
     # TODO: handle token
 
     # TODO: user dir persistence
     # TODO: image selection
+    # TODO: different certs for different users
 
     def env_string(self):
         env = ""
@@ -1049,6 +1049,7 @@ class ARCSpawner(BatchSpawnerRegexStates):
         env['JUPYTER_PORT'] = str(self.port)
         env['JUPYTERHUB_BASE_URL'] = 'https://platform-noir.dev.ctaodc.ch/'
         env['CTADS_URL'] = 'https://platform-noir.dev.ctaodc.ch/services/downloadservice/'
+        env['X509_USER_PROXY'] = "/downloadservice-data/dcache_clientcert.crt"
         return env
 
     @property
