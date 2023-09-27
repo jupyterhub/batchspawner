@@ -1034,12 +1034,14 @@ class ARCSpawner(BatchSpawnerRegexStates):
     # TODO: image selection
     # TODO: different certs for different users
 
-    # TODO: really make https://jh-staging.cta.cscs.ch/ configurable!
-
+    @property
+    def jh_base_url(self):
+        return os.getenv("JH_BASE_URL", "https://jh-staging.cta.cscs.ch/")
+    
     def env_string(self):
         env = ""
         for key, value in self.get_env().items():
-            value = re.sub("http://.*?:8081/hub/api", "https://jh-staging.cta.cscs.ch/hub", value)
+            value = re.sub("http://.*?:8081/hub", self.jh_base_url + "/hub", value)
             #if key in ["JUPYTERHUB_SERVICE_PREFIX", "JUPYTERHUB_SERVICE_URL"]:
             #    value = value.replace("/user", "/hub/user")
             env += '("{}" ^@{}@)\n'.format(key, value)
@@ -1049,8 +1051,8 @@ class ARCSpawner(BatchSpawnerRegexStates):
         env = super().get_env()
 
         env['JUPYTER_PORT'] = str(self.port)
-        env['JUPYTERHUB_BASE_URL'] = 'https://jh-staging.cta.cscs.ch/'
-        env['CTADS_URL'] = 'https://jh-staging.cta.cscs.ch/services/downloadservice/'
+        env['JUPYTERHUB_BASE_URL'] = self.jh_base_url
+        env['CTADS_URL'] = self.jh_base_url + '/services/downloadservice/'
         env['X509_USER_PROXY'] = "/downloadservice-data/dcache_clientcert.crt"
         return env
 
