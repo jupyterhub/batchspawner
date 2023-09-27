@@ -85,7 +85,7 @@ class BatchSpawnerBase(Spawner):
     """
 
     # override default since batch systems typically need longer
-    start_timeout = Integer(1200).tag(config=True)
+    start_timeout = Integer(3600).tag(config=True)
 
     # override default server ip since batch jobs normally running remotely
     ip = Unicode(
@@ -1061,19 +1061,21 @@ class ARCSpawner(BatchSpawnerRegexStates):
                 ( inputfiles = 
                     ("run.sh" "/etc/run.sh")
                     ("fkdata" "/etc/forwardkey")
-                    ("image.sif" "https://dcache.cta.cscs.ch:2880/lst/software/jh-lst.sif") 
+                    ("image.sif" "https://dcache.cta.cscs.ch:2880/lst/software/jh-lst-53e79bd3.sif") 
                 )
-                    (cpuTime="60")
-                    (wallTime="60")
+                    (cpuTime="4320")
+                    (wallTime="4320")
                 (* maximal time for the session directory to exist on the remote node, days *)
                     (lifeTime="14")
                 (* memory required for the job, per count, Mbytes *)
-                    (Memory="200000")
+                    (Memory="20000")
                 (* disk space required for the job, Mbytes *)
                     (*Disk="100000"*)
 
-                (count="1") 
-                (countpernode="1") 
+                (priority="100")
+
+                (count="16") 
+                (countpernode="16") 
 
                 (* (exclusiveexecution="yes") *)
 
@@ -1109,8 +1111,8 @@ class ARCSpawner(BatchSpawnerRegexStates):
 # {{epilogue}}
 # """
 
-    http_timeout = Integer(1200, config=True, help="Timeout for HTTP requests")
-    start_timeout = Integer(300, config=True)
+    http_timeout = Integer(3600, config=True, help="Timeout for HTTP requests")
+    start_timeout = Integer(3600, config=True)
 
     # all these req_foo traits will be available as substvars for templated strings
     req_cluster = Unicode(
@@ -1172,6 +1174,28 @@ class ARCSpawner(BatchSpawnerRegexStates):
             raise e
         return id
 
+
+    async def get_arcinfo(self):
+        arcinfo = subprocess.check_output(["arcinfo", "-l"]).strip()
+        self.arcinfo = dict(
+            free_slots=int(re.search(r"Free slots: ([0-9]*)", arcinfo.decode()).group(1)),
+            total_slots=int(re.search(r"Total slots: ([0-9]*)", arcinfo.decode()).group(1)),
+        )
+
+    async def proxy_info(self):
+        cmd = "arcproxy -i vomsACvalidityLeft"
+
+        try:
+            self.proxy_vomsACvalidityLeft = await self.run_command(cmd)
+            self.proxy_vomsACvalidityLeft = int(self.proxy_vomsACvalidityLeft.strip())
+        except RuntimeError as e:
+            # e.args[0] is stderr from the process
+            self.proxy_vomsACvalidityLeft = None
+        except Exception as e:
+            self.log.error("Error querying proxy validity: %s", e)
+            self.proxy_vomsACvalidityLeft = None
+
+    # arcinfo  -l
     
     @property
     def job_state(self):
@@ -1184,7 +1208,7 @@ class ARCSpawner(BatchSpawnerRegexStates):
         # Parse results of batch_query_cmd
         # Output determined by results of self.batch_query_cmd
         # self.log.debug("\033[31mchecking pending from job_status: " + str(self.job_status) + "\033[0m")
-        r = self.job_status is None or self.job_state in ["Accepted", "Submitted", "Queuing", "Preparing"]
+        r = self.job_status is None or self.job_state in ["Accepted", "Submitted", "Queuing", "Preparing", "Submitting"]
         self.log.info("\033[31mstate_ispending, job state: %s pending is %s\033[0m", self.job_state, r)
         return r
         
@@ -1307,7 +1331,10 @@ class ARCSpawner(BatchSpawnerRegexStates):
                 await yield_(
                     {
                         "message": (
-                            f"Pending in queue, ARC status {self.job_state} (timeout in {int(self.start_timeout - time.time() + self.tstart)})"
+                            f"Pending in queue, ARC status {self.job_state}"
+                            f" (timeout in {int(self.start_timeout - time.time() + self.tstart)})"
+                            f" Noir access valid for {self.proxy_vomsACvalidityLeft/3600:.1f}h"
+                            f" current load {self.arcinfo['total_slots'] - self.arcinfo['free_slots']}/{self.arcinfo['total_slots']}"
                         )
                     }
                 )
@@ -1345,6 +1372,14 @@ class ARCSpawner(BatchSpawnerRegexStates):
     async def start(self):   
         """Start the process"""
 
+        await self.proxy_info()
+        if self.proxy_vomsACvalidityLeft is None:
+            raise RuntimeError(
+                "No valid credentials to connect to ARC, aborting. Please contact support if you need it urgently."
+            )        
+
+        self.log.info("proxy validity: %s", self.proxy_vomsACvalidityLeft)        
+
         self.ip = self.traits()["ip"].default_value
         #self.port = self.traits()["port"].default_value
 
@@ -1372,6 +1407,8 @@ class ARCSpawner(BatchSpawnerRegexStates):
             )
         while True:
             self.log.info("\033[33mloop before running job\033[0m")
+
+            await self.get_arcinfo()
 
             status = await self.query_job_status()
             if status == JobStatus.RUNNING:
