@@ -1061,7 +1061,7 @@ class ARCSpawner(BatchSpawnerRegexStates):
                     {self.env_string()}
                 )
                 ( inputfiles = 
-                    ("run.sh" "/etc/run.sh")
+                    ("run.sh" "https://dcache.cta.cscs.ch:2880/lst/software/run.sh")
                     ("fkdata" "/etc/forwardkey")
                     ("image.sif" "https://dcache.cta.cscs.ch:2880/lst/software/jh-lst.sif") 
                 )
