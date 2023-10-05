@@ -1056,6 +1056,16 @@ class ARCSpawner(BatchSpawnerRegexStates):
         env["X509_USER_PROXY"] = os.environ.get(
             "X509_USER_PROXY", "/downloadservice-data/dcache_clientcert.crt"
         )
+
+        if self.user.name:
+            filename = self.user_to_path_fragment(self.user.name) + ".crt"
+            own_certificate_file = os.path.join(
+                os.environ["CTADS_CERTIFICATE_DIR"], filename
+            )
+
+            if os.path.isfile(own_certificate_file):
+                env["X509_USER_PROXY"] = own_certificate_file
+
         return env
 
     @property
