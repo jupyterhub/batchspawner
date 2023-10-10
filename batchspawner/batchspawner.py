@@ -1077,7 +1077,7 @@ class ARCSpawner(BatchSpawnerRegexStates):
                     {self.env_string()}
                 )
                 ( inputfiles = 
-                    ("run.sh" "https://dcache.cta.cscs.ch:2880/lst/software/run.sh")
+                    ("run.sh" "{self.run_script_url}")
                     ("fkdata" "/etc/forwardkey")
                     ("image.sif" "https://dcache.cta.cscs.ch:2880/lst/software/jh-lst-53e79bd3.sif") 
                 )
@@ -1161,6 +1161,17 @@ class ARCSpawner(BatchSpawnerRegexStates):
     req_gres = Unicode(
         "",
         help="Additional resources (e.g. GPUs) requested",
+    ).tag(config=True)
+
+    exec_prefix = Unicode(
+        "",
+        # "sudo -E -u {username}",
+        help="Standard execution prefix (e.g. the default sudo -E -u {username})",
+    ).tag(config=True)
+
+    run_script_url = Unicode(
+        "https://dcache.cta.cscs.ch:2880/lst/software/run.sh",
+        help="run_script_url",
     ).tag(config=True)
 
     input_as_file = True
@@ -1336,7 +1347,7 @@ class ARCSpawner(BatchSpawnerRegexStates):
         if r is not None:
             self.host_ip = r.group(1)
 
-        if re.search("Sending command: sleep 3600", self.job_log):
+        if re.search("Sending command: .*sleep 60", self.job_log):
             self.log.info("found sleep command in job log")
             self.have_tunnel = True
 
