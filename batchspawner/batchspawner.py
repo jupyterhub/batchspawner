@@ -1081,6 +1081,10 @@ class ARCSpawner(BatchSpawnerRegexStates):
                     ("fkdata" "/etc/forwardkey")
                     ("image.sif" "https://dcache.cta.cscs.ch:2880/lst/software/jh-lst-53e79bd3.sif") 
                 )
+
+                ( outputFiles = 
+                    ("user-home-tar.tgz" "https://dcache.cta.cscs.ch:2880/pnfs/cta.cscs.ch/lst/users/{self.user_to_path_fragment(self.user.name)}/user-home-tar.tgz")                
+                )
                     (cpuTime="4320")
                     (wallTime="4320")
                 (* maximal time for the session directory to exist on the remote node, days *)
@@ -1170,7 +1174,8 @@ class ARCSpawner(BatchSpawnerRegexStates):
     ).tag(config=True)
 
     run_script_url = Unicode(
-        "https://dcache.cta.cscs.ch:2880/lst/software/run.sh",
+        "",
+        # "https://dcache.cta.cscs.ch:2880/lst/software/run.sh",
         help="run_script_url",
     ).tag(config=True)
 
