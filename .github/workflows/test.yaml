@@ -1,0 +1,79 @@
+# This is a GitHub workflow defining a set of jobs with a set of steps.
+# ref: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions
+#
+name: Test
+
+on:
+  pull_request:
+    paths-ignore:
+      - "**.md"
+      - ".github/workflows/*.yaml"
+      - "!.github/workflows/test.yaml"
+  push:
+    paths-ignore:
+      - "**.md"
+      - ".github/workflows/*.yaml"
+      - "!.github/workflows/test.yaml"
+    branches-ignore:
+      - "dependabot/**"
+      - "pre-commit-ci-update-config"
+    tags: ["**"]
+  workflow_dispatch:
+
+jobs:
+  pytest:
+    name: Run pytest
+    runs-on: ${{ matrix.runs-on || 'ubuntu-22.04' }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # test oldest supported version
+          - python-version: "3.6"
+            pip-install-spec: "jupyterhub==1.5.1 sqlalchemy==1.*"
+            runs-on: ubuntu-20.04 # python 3.6 is only available in 20.04
+
+          - python-version: "3.7"
+            pip-install-spec: "jupyterhub==2.* sqlalchemy==1.*"
+          - python-version: "3.8"
+            pip-install-spec: "jupyterhub==3.*"
+          - python-version: "3.10"
+            pip-install-spec: "jupyterhub==4.*"
+          - python-version: "3.11"
+            pip-install-spec: "jupyterhub==4.*"
+
+          # test unreleased jupyterhub, failures tolerated
+          - python-version: "3.X"
+            pip-install-spec: "git+https://github.com/jupyterhub/jupyterhub"
+            allow-failure: true
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: "18"
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "${{ matrix.python-version }}"
+
+      - name: Install Node dependencies
+        run: |
+          npm install -g configurable-http-proxy
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install ${{ matrix.pip-install-spec }}
+          pip install -e ".[test]"
+
+      - name: List dependencies
+        run: |
+          pip freeze
+
+      - name: pytest
+        run: |
+          pytest
+
+      # GitHub action reference: https://github.com/codecov/codecov-action
+      - uses: codecov/codecov-action@v3

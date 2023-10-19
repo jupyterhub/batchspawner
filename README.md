@@ -1,10 +1,11 @@
 # batchspawner for Jupyterhub
 
-[![GitHub Workflow Status - Test](https://img.shields.io/github/workflow/status/jupyterhub/batchspawner/Test?logo=github&label=tests)](https://github.com/jupyterhub/batchspawner/actions)
-[![Latest PyPI version](https://img.shields.io/pypi/v/batchspawner?logo=pypi&logoColor=white)](https://pypi.python.org/pypi/batchspawner)
-[![GitHub](https://img.shields.io/badge/issue_tracking-github-blue?logo=github)](https://github.com/jupyterhub/batchspawner/issues)
-[![Discourse](https://img.shields.io/badge/help_forum-discourse-blue?logo=discourse)](https://discourse.jupyter.org/c/jupyterhub)
-[![Gitter](https://img.shields.io/badge/social_chat-gitter-blue?logo=gitter)](https://gitter.im/jupyterhub/jupyterhub)
+[![Latest PyPI version](https://img.shields.io/pypi/v/batchspawner?logo=pypi)](https://pypi.python.org/pypi/batchspawner)
+[![Latest conda-forge version](https://img.shields.io/conda/vn/conda-forge/batchspawner?logo=conda-forge)](https://anaconda.org/conda-forge/batchspawner)
+[![GitHub Workflow Status - Test](https://img.shields.io/github/actions/workflow/status/jupyterhub/batchspawner/test.yaml?logo=github&label=tests)](https://github.com/jupyterhub/batchspawner/actions)
+[![Test coverage of code](https://codecov.io/gh/jupyterhub/batchspawner/branch/main/graph/badge.svg)](https://codecov.io/gh/jupyterhub/batchspawner)
+[![Issue tracking - GitHub](https://img.shields.io/badge/issue_tracking-github-blue?logo=github)](https://github.com/jupyterhub/batchspawner/issues)
+[![Help forum - Discourse](https://img.shields.io/badge/help_forum-discourse-blue?logo=discourse)](https://discourse.jupyter.org/c/jupyterhub)
 [![Contribute](https://img.shields.io/badge/I_want_to_contribute!-grey?logo=jupyter)](https://github.com/jupyterhub/batchspawner/blob/master/CONTRIBUTING.md)
 
 This is a custom spawner for [Jupyterhub](https://jupyterhub.readthedocs.io/) that is designed for installations on clusters using batch scheduling software.
