@@ -116,7 +116,7 @@ class BatchSpawnerBase(Spawner):
     ).tag(config=True)
 
     req_nprocs = Unicode(
-        "",
+        "8",
         help="Number of processors to request from resource manager",
     ).tag(config=True)
 
@@ -1096,8 +1096,8 @@ class ARCSpawner(BatchSpawnerRegexStates):
 
                 (priority="100")
 
-                (count="16") 
-                (countpernode="16") 
+                (count="{int(self.req_nprocs)}") 
+                (countpernode="{int(self.req_nprocs)}") 
 
                 (* (exclusiveexecution="yes") *)
 
