@@ -1575,5 +1575,14 @@ class ARCSpawner(BatchSpawnerRegexStates):
         # return url
 
     async def cancel_batch_job(self):
-        await super().cancel_batch_job()
+        subvars = self.get_req_subvars()
+        subvars["job_id"] = self.job_id
+        cmd = " ".join(
+            (
+                format_template(self.exec_prefix, **subvars),
+                format_template(self.batch_cancel_cmd, **subvars),
+            )
+        )
+        self.log.info("Cancelling job " + self.job_id + ": " + cmd)
+        await self.run_command(cmd)
         self.ssh_tunnel_task.cancel()
