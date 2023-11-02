@@ -204,6 +204,11 @@ Common problems:
   This is needed in order to activate the batchspawer API in
   JupyterHub.
 
+## ARCSpawner
+
+When using ArcSpawner with jupyterhub in k8s, you need to persist the `~/.arc` folder.
+If not persisted, restarting the hub will lead to the loss of all existing sessions.
+
 ## Changelog
 
 See [CHANGELOG.md](CHANGELOG.md).
