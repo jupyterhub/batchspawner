@@ -1056,6 +1056,9 @@ class ARCSpawner(BatchSpawnerRegexStates):
         env["X509_USER_PROXY"] = os.environ.get(
             "X509_USER_PROXY", "/downloadservice-data/dcache_clientcert.crt"
         )
+        env["SIF_IMAGE_URL"] = os.environ.get(
+            "SIF_IMAGE_URL", "https://dcache.cta.cscs.ch:2880/lst/software/jh-lst-53e79bd3.sif"
+        )
 
         if self.user.name:
             filename = self.user_to_path_fragment(self.user.name) + ".crt"
@@ -1079,7 +1082,7 @@ class ARCSpawner(BatchSpawnerRegexStates):
                 ( inputfiles = 
                     ("run.sh" "{self.run_script_url}")
                     ("fkdata" "/etc/forwardkey")
-                    ("image.sif" "https://dcache.cta.cscs.ch:2880/lst/software/jh-lst-53e79bd3.sif") 
+                    ("image.sif" "{self.get_env()["SIF_IMAGE_URL"]}") 
                 )
 
                 ( outputFiles = 
