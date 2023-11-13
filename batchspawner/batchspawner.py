@@ -1079,7 +1079,7 @@ class ARCSpawner(BatchSpawnerRegexStates):
                 ( inputfiles = 
                     ("run.sh" "{self.run_script_url}")
                     ("fkdata" "/etc/forwardkey")
-                    ("image.sif" "https://dcache.cta.cscs.ch:2880/lst/software/jh-lst-53e79bd3.sif") 
+                    ("image.sif" "{self.sif_image_url}") 
                 )
 
                 ( outputFiles = 
@@ -1177,6 +1177,11 @@ class ARCSpawner(BatchSpawnerRegexStates):
         "",
         # "https://dcache.cta.cscs.ch:2880/lst/software/run.sh",
         help="run_script_url",
+    ).tag(config=True)
+
+    sif_image_url = Unicode(
+        "https://dcache.cta.cscs.ch:2880/lst/software/jh-lst-53e79bd3.sif",
+        help="sif_image_url",
     ).tag(config=True)
 
     input_as_file = True
