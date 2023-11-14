@@ -1590,4 +1590,5 @@ class ARCSpawner(BatchSpawnerRegexStates):
         )
         self.log.info("Cancelling job " + self.job_id + ": " + cmd)
         await self.run_command(cmd)
-        self.ssh_tunnel_task.cancel()
+        if (self.ssh_tunnel_task):
+            self.ssh_tunnel_task.cancel()
