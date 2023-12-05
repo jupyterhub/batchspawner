@@ -16,6 +16,10 @@ This package formerly included WrapSpawner and ProfilesSpawner, which provide me
 
 ## Installation
 
+> **⚠ NOTE**
+>
+> If you are using JupyterHub 3+ then you currently must install from the main branch, for example by `pip install https://github.com/jupyterhub/batchspawner/archive/main.zip`, due to a [bug that is resolved but not yet released](https://github.com/jupyterhub/batchspawner/issues/277).
+
 1. from root directory of this repo (where setup.py is), run `pip install -e .`
 
    If you don't actually need an editable version, you can simply run
