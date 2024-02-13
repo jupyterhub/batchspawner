@@ -476,7 +476,7 @@ class BatchSpawnerBase(Spawner):
             else:
                 self.log.info("no ip in log yet")
 
-            await gen.sleep(self.startup_poll_interval)
+            await asyncio.sleep(self.startup_poll_interval)
 
         self.ip = self.state_gethost()
         while self.port == 0:
@@ -1433,7 +1433,7 @@ class ARCSpawner(BatchSpawnerRegexStates):
                         "message": "Unknown status...",
                     }
                 )
-            await gen.sleep(1)
+            await asyncio.sleep(1)
 
     async def start(self):
         """Start the process"""
@@ -1499,7 +1499,7 @@ class ARCSpawner(BatchSpawnerRegexStates):
                     " while pending in the queue or died immediately"
                     " after starting."
                 )
-            await gen.sleep(self.startup_poll_interval)
+            await asyncio.sleep(self.startup_poll_interval)
 
         while True:
             self.log.info("\033[31mloop for running job\033[0m")
@@ -1525,7 +1525,7 @@ class ARCSpawner(BatchSpawnerRegexStates):
             else:
                 self.log.info("no ip in log yet")
 
-            await gen.sleep(self.startup_poll_interval)
+            await asyncio.sleep(self.startup_poll_interval)
 
         # self.ip = "127.0.0.1" #self.state_gethost()
         self.ip = "148.187.151.63"  # self.state_gethost()
@@ -1533,7 +1533,7 @@ class ARCSpawner(BatchSpawnerRegexStates):
         self.server.port = self.anticipated_port
 
         while self.port == 0:
-            await gen.sleep(self.startup_poll_interval)
+            await asyncio.sleep(self.startup_poll_interval)
             # Test framework: For testing, mock_port is set because we
             # don't actually run the single-user server yet.
             if hasattr(self, "mock_port"):
