@@ -1,6 +1,7 @@
 import json
-from tornado import web
+
 from jupyterhub.apihandlers import APIHandler, default_handlers
+from tornado import web
 
 
 class BatchSpawnerAPIHandler(APIHandler):

@@ -1,48 +1,23 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# Copyright (c) Jupyter Development Team.
-# Distributed under the terms of the Modified BSD License.
-
-# -----------------------------------------------------------------------------
-# Minimal Python version sanity check (from IPython/Jupyterhub)
-# -----------------------------------------------------------------------------
-
-from __future__ import print_function
-
-import os
-import sys
-
 from setuptools import setup
-from glob import glob
 
-pjoin = os.path.join
-here = os.path.abspath(os.path.dirname(__file__))
+with open("README.md") as f:
+    long_description = f.read()
 
-# Get the current package version.
-version_ns = {}
-with open(pjoin(here, "version.py")) as f:
-    exec(f.read(), {}, version_ns)
-
-with open(pjoin(here, "README.md"), encoding="utf-8") as f:
-    long_desc = f.read()
-
-setup_args = dict(
+setup(
     name="batchspawner",
     entry_points={
         "console_scripts": ["batchspawner-singleuser=batchspawner.singleuser:main"],
     },
     packages=["batchspawner"],
-    version=version_ns["__version__"],
+    version="1.3.0.dev",
     description="""Batchspawner: A spawner for Jupyterhub to spawn notebooks using batch resource managers.""",
-    long_description=long_desc,
+    long_description=long_description,
     long_description_content_type="text/markdown",
     author="Michael Milligan, Andrea Zonca, Mike Gilbert",
     author_email="milligan@umn.edu",
     url="http://jupyter.org",
     license="BSD",
     platforms="Linux, Mac OS X",
-    python_requires="~=3.5",
     keywords=["Interactive", "Interpreter", "Shell", "Web", "Jupyter"],
     classifiers=[
         "Intended Audience :: Developers",
@@ -58,22 +33,17 @@ setup_args = dict(
         "About Jupyterhub": "http://jupyterhub.readthedocs.io/en/latest/",
         "Jupyter Project": "http://jupyter.org",
     },
+    python_requires=">=3.6",
+    install_require={
+        "jinja2",
+        "jupyterhub>=1.5.1",
+    },
+    extras_require={
+        "test": [
+            "pytest",
+            "pytest-asyncio",
+            "pytest-cov",
+            "notebook",
+        ],
+    },
 )
-
-# setuptools requirements
-if "setuptools" in sys.modules:
-    setup_args["install_requires"] = install_requires = []
-    with open("requirements.txt") as f:
-        for line in f.readlines():
-            req = line.strip()
-            if not req or req.startswith(("-e", "#")):
-                continue
-            install_requires.append(req)
-
-
-def main():
-    setup(**setup_args)
-
-
-if __name__ == "__main__":
-    main()
