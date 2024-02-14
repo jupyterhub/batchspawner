@@ -42,6 +42,8 @@ jobs:
             pip-install-spec: "jupyterhub==4.*"
           - python-version: "3.11"
             pip-install-spec: "jupyterhub==4.*"
+          - python-version: "3.12"
+            pip-install-spec: "jupyterhub==4.*"
 
           # test unreleased jupyterhub, failures tolerated
           - python-version: "3.X"
