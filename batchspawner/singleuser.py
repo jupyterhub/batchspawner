@@ -1,14 +1,13 @@
 import os
 import sys
 
-from urllib.parse import urlparse
 from runpy import run_path
 from shutil import which
-
-from jupyterhub.utils import random_port, url_path_join
-from jupyterhub.services.auth import HubAuth
+from urllib.parse import urlparse
 
 import requests
+from jupyterhub.services.auth import HubAuth
+from jupyterhub.utils import random_port, url_path_join
 
 
 def main(argv=None):
@@ -28,9 +27,9 @@ def main(argv=None):
     if hub_auth.client_ca:
         kwargs["verify"] = hub_auth.client_ca
 
-    r = requests.post(
+    requests.post(
         url,
-        headers={"Authorization": f"token {hub_auth.api_token}"},
+        headers=headers,
         json={"port": port},
         **kwargs,
     )
