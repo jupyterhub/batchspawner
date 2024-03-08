@@ -1,8 +1,11 @@
 """Test BatchSpawner and subclasses"""
 
 import asyncio
+import pwd
 import re
 import time
+from getpass import getuser
+from unittest import mock
 
 import pytest
 from jupyterhub import orm
@@ -15,6 +18,15 @@ from .. import BatchSpawnerRegexStates, JobStatus
 testhost = "userhost123"
 testjob = "12345"
 testport = 54321
+
+
+@pytest.fixture(autouse=True)
+def _always_get_my_home():
+    # pwd.getbwnam() is always called with the current user
+    # ignoring the requested name, which usually doesn't exist
+    getpwnam = pwd.getpwnam
+    with mock.patch.object(pwd, "getpwnam", lambda name: getpwnam(getuser())):
+        yield
 
 
 class BatchDummy(BatchSpawnerRegexStates):
