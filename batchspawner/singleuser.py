@@ -2,7 +2,7 @@ import os
 import sys
 from runpy import run_path
 from shutil import which
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlunparse
 
 import requests
 from jupyterhub.services.auth import HubAuth
@@ -35,12 +35,15 @@ def main(argv=None):
 
     # Read the env var JUPYTERHUB_SERVICE_URL and replace port in the URL
     # with free port that we found here
-    url = urlparse(os.environ.get("JUPYTERHUB_SERVICE_URL", ""))
-    # Updated URL. We are effectively passing the port arg via env var
-    if url.hostname:
-        os.environ["JUPYTERHUB_SERVICE_URL"] = (
-            f"{url.scheme}://{url.hostname}:{port}{url.path}"
-        )
+    # JUPYTERHUB_SERVICE_URL is added in JupyterHub 2.0
+    service_url_env = os.environ.get("JUPYTERHUB_SERVICE_URL", "")
+    if service_url_env:
+        url = urlparse(os.environ["JUPYTERHUB_SERVICE_URL"])
+        url = url._replace(netloc=f"{url.hostname}:{port}")
+        os.environ["JUPYTERHUB_SERVICE_URL"] = urlunparse(url)
+    else:
+        # JupyterHub < 2.0 specifies port on the command-line
+        sys.argv.append(f"--port={port}")
 
     cmd_path = which(sys.argv[1])
     sys.argv = sys.argv[1:]
