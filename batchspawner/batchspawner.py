@@ -162,7 +162,7 @@ class BatchSpawnerBase(Spawner):
         help="Extra environment variables which should be configured, "
         "added to the defaults in keepvars, "
         "comma separated list.",
-    )
+    ).tag(config=True)
 
     batch_script = Unicode(
         "",
