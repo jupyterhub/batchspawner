@@ -278,14 +278,16 @@ class BatchSpawnerBase(Spawner):
         if hasattr(self, "user_options"):
             subvars.update(self.user_options)
         script = await self._get_batch_script(**subvars)
-        self.log.info("Spawner submitting job using " + cmd)
-        self.log.info("Spawner submitted script:\n" + script)
+        self.log.info("Spawner script options: %s", subvars)
+        self.log.info("Spawner submitting command: %s", cmd)
+        self.log.debug("Spawner submitting script:\n%s", script)
+        self.log.debug("Spawner submitting environment: %s", self.get_env())
         out = await self.run_command(cmd, input=script, env=self.get_env())
         try:
-            self.log.info("Job submitted. cmd: " + cmd + " output: " + out)
+            self.log.info("Job submitted. output: %s", out)
             self.job_id = self.parse_job_id(out)
         except:
-            self.log.error("Job submission failed with exit code " + out)
+            self.log.error("Job submission failed. exit code: %s", out)
             self.job_id = ""
         return self.job_id
 
