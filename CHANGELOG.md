@@ -1,16 +1,43 @@
 # Changelog
 
-## unreleased changes
+## v1.3
 
-Added (user)
+### v1.3.0 - 2024-03-19
 
-Added (developer)
+This release requires Python >=3.6 and JupyterHub >=1.5.1.
 
-Changed
+#### New features added
 
-Fixed
+- allow for req_keepvars_extra to be configured [#295](https://github.com/jupyterhub/batchspawner/pull/295) ([@mark-tomich](https://github.com/mark-tomich), [@minrk](https://github.com/minrk))
+
+#### Maintenance and upkeep improvements
+
+- TST: don't assume test user is OS user [#301](https://github.com/jupyterhub/batchspawner/pull/301) ([@minrk](https://github.com/minrk))
+- Add python 3.12 for tests [#299](https://github.com/jupyterhub/batchspawner/pull/299) ([@Ph0tonic](https://github.com/Ph0tonic), [@consideRatio](https://github.com/consideRatio))
+- maint: req py36+ and jh 1.5.1+, fix tests, add RELEASE.md, add pre-commit hooks, add dependabot [#273](https://github.com/jupyterhub/batchspawner/pull/273) ([@consideRatio](https://github.com/consideRatio), [@mbmilligan](https://github.com/mbmilligan), [@ryanlovett](https://github.com/ryanlovett), [@yuvipanda](https://github.com/yuvipanda), [@mahendrapaipuri](https://github.com/mahendrapaipuri))
+- Upgrade singleuser.py to JupyterHub 4 [#267](https://github.com/jupyterhub/batchspawner/pull/267) ([@mahendrapaipuri](https://github.com/mahendrapaipuri), [@minrk](https://github.com/minrk), [@consideRatio](https://github.com/consideRatio))
+- Quell async warning, and POST with body for jupyterhub 3.0 [#247](https://github.com/jupyterhub/batchspawner/pull/247) ([@ryanlovett](https://github.com/ryanlovett), [@mbmilligan](https://github.com/mbmilligan), [@rcthomas](https://github.com/rcthomas), [@minrk](https://github.com/minrk), [@jbeal-work](https://github.com/jbeal-work), [@mawigh](https://github.com/mawigh), [@cmd-ntrf](https://github.com/cmd-ntrf), [@jaescartin1](https://github.com/jaescartin1))
+
+#### Documentation improvements
+
+- Add temporary info about a temporary bug with JupyterHub 3+ [#290](https://github.com/jupyterhub/batchspawner/pull/290) ([@krokicki](https://github.com/krokicki), [@consideRatio](https://github.com/consideRatio))
+
+#### Continuous integration improvements
+
+- Modernize test matrix [#252](https://github.com/jupyterhub/batchspawner/pull/252) ([@mbmilligan](https://github.com/mbmilligan))
+
+#### Contributors to this release
+
+The following people contributed discussions, new ideas, code and documentation contributions, and review.
+See [our definition of contributors](https://github-activity.readthedocs.io/en/latest/#how-does-this-tool-define-contributions-in-the-reports).
+
+([GitHub contributors page for this release](https://github.com/jupyterhub/batchspawner/graphs/contributors?from=2022-10-05&to=2024-03-19&type=c))
+
+@basnijholt ([activity](https://github.com/search?q=repo%3Ajupyterhub%2Fbatchspawner+involves%3Abasnijholt+updated%3A2022-10-05..2024-03-19&type=Issues)) | @cmd-ntrf ([activity](https://github.com/search?q=repo%3Ajupyterhub%2Fbatchspawner+involves%3Acmd-ntrf+updated%3A2022-10-05..2024-03-19&type=Issues)) | @consideRatio ([activity](https://github.com/search?q=repo%3Ajupyterhub%2Fbatchspawner+involves%3AconsideRatio+updated%3A2022-10-05..2024-03-19&type=Issues)) | @jaescartin1 ([activity](https://github.com/search?q=repo%3Ajupyterhub%2Fbatchspawner+involves%3Ajaescartin1+updated%3A2022-10-05..2024-03-19&type=Issues)) | @jbeal-work ([activity](https://github.com/search?q=repo%3Ajupyterhub%2Fbatchspawner+involves%3Ajbeal-work+updated%3A2022-10-05..2024-03-19&type=Issues)) | @krokicki ([activity](https://github.com/search?q=repo%3Ajupyterhub%2Fbatchspawner+involves%3Akrokicki+updated%3A2022-10-05..2024-03-19&type=Issues)) | @mahendrapaipuri ([activity](https://github.com/search?q=repo%3Ajupyterhub%2Fbatchspawner+involves%3Amahendrapaipuri+updated%3A2022-10-05..2024-03-19&type=Issues)) | @mark-tomich ([activity](https://github.com/search?q=repo%3Ajupyterhub%2Fbatchspawner+involves%3Amark-tomich+updated%3A2022-10-05..2024-03-19&type=Issues)) | @mawigh ([activity](https://github.com/search?q=repo%3Ajupyterhub%2Fbatchspawner+involves%3Amawigh+updated%3A2022-10-05..2024-03-19&type=Issues)) | @mbmilligan ([activity](https://github.com/search?q=repo%3Ajupyterhub%2Fbatchspawner+involves%3Ambmilligan+updated%3A2022-10-05..2024-03-19&type=Issues)) | @minrk ([activity](https://github.com/search?q=repo%3Ajupyterhub%2Fbatchspawner+involves%3Aminrk+updated%3A2022-10-05..2024-03-19&type=Issues)) | @opoplawski ([activity](https://github.com/search?q=repo%3Ajupyterhub%2Fbatchspawner+involves%3Aopoplawski+updated%3A2022-10-05..2024-03-19&type=Issues)) | @Ph0tonic ([activity](https://github.com/search?q=repo%3Ajupyterhub%2Fbatchspawner+involves%3APh0tonic+updated%3A2022-10-05..2024-03-19&type=Issues)) | @rcthomas ([activity](https://github.com/search?q=repo%3Ajupyterhub%2Fbatchspawner+involves%3Arcthomas+updated%3A2022-10-05..2024-03-19&type=Issues)) | @ryanlovett ([activity](https://github.com/search?q=repo%3Ajupyterhub%2Fbatchspawner+involves%3Aryanlovett+updated%3A2022-10-05..2024-03-19&type=Issues)) | @yuvipanda ([activity](https://github.com/search?q=repo%3Ajupyterhub%2Fbatchspawner+involves%3Ayuvipanda+updated%3A2022-10-05..2024-03-19&type=Issues))
 
 ## v1.2
+
+### v1.2.0 - 2022-10-04
 
 Changed
 
@@ -23,6 +50,8 @@ Fixed
 - PR #229: LSF jobs with multiple slots display each hostname ':' separated
 
 ## v1.1
+
+### v1.1.0 - 2021-04-07
 
 Added (user)
 
@@ -43,7 +72,20 @@ Changed
 - PR #196: documentation
 - PR #199: update setup.py
 
-## v1.0 (requires minimum JupyterHub 0.9 and Python 3.5)
+## v1.0
+
+### v1.0.1 - 2020-11-04
+
+- PR #189: batchspawner/batchspawner: Don't use `-o pipefail` in /bin/sh scripts
+- PR #180: travis: Attempt to fix CI
+- PR #177: Fail hard on first error in batch script
+- PR #170: add 'gres' option to SlurmSpawner
+- PR #165: Update batchspawner.py to use --chdir instead of --workdir
+- PR #137: Grab environment variables needed for grid engine
+
+### v1.0.0 - 2020-07-21
+
+This release requires minimum JupyterHub 0.9 and Python 3.5.
 
 Added (user)
 
@@ -80,11 +122,15 @@ Fixed
 
 Removed
 
-## v0.8.1 (bugfix release)
+## v0.8
+
+### v0.8.1 - 2018-05-02
 
 - Fix regression: single-user server binding address is overwritten by previous session server address, resulting in failure to start. Issue #76
 
-## v0.8.0 (compatible with JupyterHub 0.5.0 through 0.8.1/0.9dev)
+### v0.8.0 - 2018-04-24
+
+This release is compatible with JupyterHub 0.5.0 through 0.8.1/0.9dev.
 
 - SlurmSpawner: Remove `--uid` for (at least) Slurm 17.11 compatibility. If you use `sudo`, this should not be necessary, but because this is security related you should check that user management is as you expect. If your configuration does not use `sudo` then you may need to add the `--uid` option in a custom `batch_script`.
 - add base options `req_ngpus` `req_partition` `req_account` and `req_options`
@@ -101,6 +147,8 @@ Removed
 - WrapSpawner and ProfilesSpawner, which provide mechanisms for runtime configuration of spawners, have been split out and moved to the [`wrapspawner`](https://github.com/jupyterhub/wrapspawner) package
 - Enable CI testing via Travis-CI
 
-## v0.3 (tag: jhub-0.3, compatible with JupyterHub 0.3.0)
+## v0.3
+
+### v0.3.0 - 2015-11-30
 
 - initial release containing `TorqueSpawner` and `SlurmSpawner`
