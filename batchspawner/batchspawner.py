@@ -683,7 +683,6 @@ set -euo pipefail
 
 trap 'echo SIGTERM received' TERM
 {{prologue}}
-which jupyterhub-singleuser
 {% if srun %}{{srun}} {% endif %}{{cmd}}
 echo "jupyterhub-singleuser ended gracefully"
 {{epilogue}}
