@@ -478,6 +478,40 @@ async def test_slurm(db, event_loop):
         re.compile(r"^\#SBATCH \s+ some_option_asdf", re.X | re.M),
         re.compile(r"^\#SBATCH \s+ --reservation=RES123", re.X | re.M),
         re.compile(r"^\#SBATCH \s+ --gres=GRES123", re.X | re.M),
+        re.compile(
+            r"^\#SBATCH \s+ --output= .+ /jupyterhub_slurmspawner_%j.log", re.X | re.M
+        ),
+    ]
+    from .. import SlurmSpawner
+
+    await run_spawner_script(
+        db,
+        SlurmSpawner,
+        normal_slurm_script,
+        batch_script_re_list=batch_script_re_list,
+        spawner_kwargs=spawner_kwargs,
+    )
+
+
+@pytest.mark.parametrize(
+    "req_output,expected_file_pattern",
+    [
+        ("/dev/null", "/dev/null"),
+        ("slurm-%j.out", "{homedir}/slurm-%j.out"),
+    ],
+)
+async def test_slurm_req_output(db, event_loop, req_output, expected_file_pattern):
+    homedir = "/users/jhub_users"
+    spawner_kwargs = {
+        "req_output": req_output,
+        "req_homedir": homedir,
+    }
+
+    batch_script_re_list = [
+        re.compile(
+            r"^\#SBATCH \s+ --output=" + expected_file_pattern.format(homedir=homedir),
+            re.X | re.M,
+        ),
     ]
     from .. import SlurmSpawner
 
