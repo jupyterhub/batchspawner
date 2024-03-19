@@ -9,7 +9,7 @@ setup(
         "console_scripts": ["batchspawner-singleuser=batchspawner.singleuser:main"],
     },
     packages=["batchspawner"],
-    version="1.3.0",
+    version="1.3.1.dev",
     description="""Batchspawner: A spawner for Jupyterhub to spawn notebooks using batch resource managers.""",
     long_description=long_description,
     long_description_content_type="text/markdown",
