@@ -349,20 +349,19 @@ async def test_torque(db, event_loop):
         re.compile(r"ppn=5"),
         re.compile(r"^#PBS some_option_asdf", re.M),
     ]
+    poll_running = (
+        re.compile(r"sudo.*qstat"),
+        f"<job_state>R</job_state><exec_host>{testhost}/1</exec_host>",
+    )
     script = [
         (re.compile(r"sudo.*qsub"), str(testjob)),
         (
             re.compile(r"sudo.*qstat"),
             "<job_state>Q</job_state><exec_host></exec_host>",
         ),  # pending
-        (
-            re.compile(r"sudo.*qstat"),
-            f"<job_state>R</job_state><exec_host>{testhost}/1</exec_host>",
-        ),  # running
-        (
-            re.compile(r"sudo.*qstat"),
-            f"<job_state>R</job_state><exec_host>{testhost}/1</exec_host>",
-        ),  # running
+        poll_running,
+        poll_running,
+        poll_running,
         (re.compile(r"sudo.*qdel"), "STOP"),
         (re.compile(r"sudo.*qstat"), ""),
     ]
@@ -394,17 +393,16 @@ async def test_moab(db, event_loop):
         re.compile(r"ppn=5"),
         re.compile(r"^#PBS some_option_asdf", re.M),
     ]
+    poll_running = (
+        re.compile(r"sudo.*mdiag"),
+        f'State="Running" AllocNodeList="{testhost}"',
+    )
     script = [
         (re.compile(r"sudo.*msub"), str(testjob)),
         (re.compile(r"sudo.*mdiag"), 'State="Idle"'),  # pending
-        (
-            re.compile(r"sudo.*mdiag"),
-            f'State="Running" AllocNodeList="{testhost}"',
-        ),  # running
-        (
-            re.compile(r"sudo.*mdiag"),
-            f'State="Running" AllocNodeList="{testhost}"',
-        ),  # running
+        poll_running,
+        poll_running,
+        poll_running,
         (re.compile(r"sudo.*mjobctl.*-c"), "STOP"),
         (re.compile(r"sudo.*mdiag"), ""),
     ]
@@ -436,17 +434,16 @@ async def test_pbs(db, event_loop):
         re.compile(r"@some_pbs_admin_node"),
         re.compile(r"^#PBS some_option_asdf", re.M),
     ]
+    poll_running = (
+        re.compile(r"sudo.*qstat"),
+        f"job_state = R\nexec_host = {testhost}/2*1",
+    )
     script = [
         (re.compile(r"sudo.*qsub"), str(testjob)),
         (re.compile(r"sudo.*qstat"), "job_state = Q"),  # pending
-        (
-            re.compile(r"sudo.*qstat"),
-            f"job_state = R\nexec_host = {testhost}/2*1",
-        ),  # running
-        (
-            re.compile(r"sudo.*qstat"),
-            f"job_state = R\nexec_host = {testhost}/2*1",
-        ),  # running
+        poll_running,
+        poll_running,
+        poll_running,
         (re.compile(r"sudo.*qdel"), "STOP"),
         (re.compile(r"sudo.*qstat"), ""),
     ]
@@ -503,6 +500,7 @@ normal_slurm_script = [
         "slurm_load_jobs error: Unable to contact slurm controller",
     ),  # unknown
     (re.compile(r"sudo.*squeue"), "RUNNING " + testhost),  # running
+    (re.compile(r"sudo.*squeue"), "RUNNING " + testhost),
     (re.compile(r"sudo.*squeue"), "RUNNING " + testhost),
     (re.compile(r"sudo.*scancel"), "STOP"),
     (re.compile(r"sudo.*squeue"), ""),
@@ -573,6 +571,7 @@ async def test_condor(db, event_loop):
         (re.compile(r"sudo.*condor_q"), "1,"),  # pending
         (re.compile(r"sudo.*condor_q"), f"2, @{testhost}"),  # runing
         (re.compile(r"sudo.*condor_q"), f"2, @{testhost}"),
+        (re.compile(r"sudo.*condor_q"), f"2, @{testhost}"),
         (re.compile(r"sudo.*condor_rm"), "STOP"),
         (re.compile(r"sudo.*condor_q"), ""),
     ]
@@ -610,6 +609,7 @@ async def test_lfs(db, event_loop):
         ),
         (re.compile(r"sudo.*bjobs"), "PEND "),  # pending
         (re.compile(r"sudo.*bjobs"), f"RUN {testhost}"),  # running
+        (re.compile(r"sudo.*bjobs"), f"RUN {testhost}"),
         (re.compile(r"sudo.*bjobs"), f"RUN {testhost}"),
         (re.compile(r"sudo.*bkill"), "STOP"),
         (re.compile(r"sudo.*bjobs"), ""),
@@ -652,3 +652,19 @@ async def test_keepvars(db, event_loop):
         spawner_kwargs=spawner_kwargs,
         batch_script_re_list=batch_script_re_list,
     )
+
+
+async def test_early_stop(db, event_loop):
+    script = [
+        (re.compile(r"sudo.*sbatch"), str(testjob)),
+        (re.compile(r"sudo.*squeue"), "PENDING "),  # pending
+        (
+            re.compile(r"sudo.*squeue"),
+            "slurm_load_jobs error: Unable to contact slurm controller",
+        ),  # unknown
+        # job exits early during start
+        (re.compile(r"sudo.*squeue"), ""),
+        (re.compile(r"sudo.*scancel"), "STOP"),
+    ]
+    with pytest.raises(RuntimeError, match="job has disappeared"):
+        await run_spawner_script(db, SlurmSpawner, script)
