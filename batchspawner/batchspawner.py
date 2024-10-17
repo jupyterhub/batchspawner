@@ -686,6 +686,7 @@ class SlurmSpawner(UserEnvMixin, BatchSpawnerRegexStates):
 {% endif %}{% if gres       %}#SBATCH --gres={{gres}}
 {% endif %}{% if nprocs     %}#SBATCH --cpus-per-task={{nprocs}}
 {% endif %}{% if reservation%}#SBATCH --reservation={{reservation}}
+{% endif %}{% if account    %}#SBATCH --account={{account}}
 {% endif %}{% if options    %}#SBATCH {{options}}{% endif %}
 
 set -euo pipefail
