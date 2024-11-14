@@ -643,9 +643,18 @@ async def test_flux(db, event_loop):
     script = [
         (re.compile(r"sudo.*flux batch"), str(testjob)),
         (re.compile(r"sudo.*flux jobs --json"), '{"state": "SCHED"}'),
-        (re.compile(r"sudo.*flux jobs --json"), f'{{"state": "RUN", "uri": "ssh://{testhost}/foo/bar"}}'),
-        (re.compile(r"sudo.*flux jobs --json"), f'{{"state": "RUN", "uri": "ssh://{testhost}/foo/bar"}}'),
-        (re.compile(r"sudo.*flux jobs --json"), f'{{"state": "RUN", "uri": "ssh://{testhost}/foo/bar"}}'),
+        (
+            re.compile(r"sudo.*flux jobs --json"),
+            f'{{"state": "RUN", "uri": "ssh://{testhost}/foo/bar"}}',
+        ),
+        (
+            re.compile(r"sudo.*flux jobs --json"),
+            f'{{"state": "RUN", "uri": "ssh://{testhost}/foo/bar"}}',
+        ),
+        (
+            re.compile(r"sudo.*flux jobs --json"),
+            f'{{"state": "RUN", "uri": "ssh://{testhost}/foo/bar"}}',
+        ),
         (re.compile(r"sudo.*flux cancel"), ""),
         (re.compile(r"sudo.*flux jobs --json"), '{"state": "INACTIVE"}'),
     ]

@@ -22,10 +22,10 @@ import pwd
 import re
 import xml.etree.ElementTree as ET
 from enum import Enum
+from urllib.parse import urlparse
 
 from jinja2 import Template
 from jupyterhub.spawner import Spawner, set_user_setuid
-from urllib.parse import urlparse
 from traitlets import Dict, Float, Integer, Unicode, default
 
 
@@ -995,7 +995,6 @@ set -eu
 
         status = json.loads(self.job_status)
         return status["state"] in ("DEPEND", "PRIORITY", "SCHED") or "uri" not in status
-
 
     def state_isrunning(self):
         if not self.job_status:
