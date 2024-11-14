@@ -994,7 +994,7 @@ set -eu
             return False
 
         status = json.loads(self.job_status)
-        return status["state"] in ("DEPEND", "PRIORITY", "SCHED")
+        return status["state"] in ("DEPEND", "PRIORITY", "SCHED") or "uri" not in status
 
 
     def state_isrunning(self):
@@ -1002,7 +1002,7 @@ set -eu
             return False
 
         status = json.loads(self.job_status)
-        return status["state"] in ("RUN", "CLEANUP")
+        return status["state"] in ("RUN", "CLEANUP") and "uri" in status
 
     def state_gethost(self):
         status = json.loads(self.job_status)
