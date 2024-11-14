@@ -970,8 +970,9 @@ class FluxSpawner(BatchSpawnerBase):
 
 #flux: --nslots=1
 #flux: --job-name='spawner-jupyterhub'
-#flux: --output={{homedir}}/{% raw %}.flux-{{id}}-{{name}}.log{% endraw %}
-#flux: --error={{homedir}}/{% raw %}.flux-{{id}}-{{name}}.error.log{% endraw %}
+#flux: --cwd={{homedir}}
+#flux: --output='{{homedir}}/{% raw %}.flux-{{id}}-{{name}}.log{% endraw %}'
+#flux: --error='{{homedir}}/{% raw %}.flux-{{id}}-{{name}}.error.log{% endraw %}'
 {%            if runtime %}#flux: --time-limit={{runtime}}
 {% endif %}{% if queue   %}#flux: --queue={{queue}}
 {% endif %}{% if nprocs  %}#flux: --cores-per-slot={{nprocs}}
