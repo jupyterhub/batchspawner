@@ -314,7 +314,9 @@ async def run_spawner_script(
             print("  --> " + out)
             return out
 
-    with new_spawner(user=user, spawner_class=BatchDummyTestScript, **spawner_kwargs) as spawner:
+    with new_spawner(
+        user=user, spawner_class=BatchDummyTestScript, **spawner_kwargs
+    ) as spawner:
         # Not running at beginning (no command run)
         status = await asyncio.wait_for(spawner.poll(), timeout=5)
         assert status == 1
