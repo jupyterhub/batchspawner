@@ -38,7 +38,6 @@ class BatchDummy(BatchSpawnerRegexStates):
     state_pending_re = Unicode("PEND")
     state_running_re = Unicode("RUN")
     state_exechost_re = Unicode("RUN (.*)$")
-    state_unknown_re = Unicode("UNKNOWN")
 
     cmd_expectlist = None
     out_expectlist = None
@@ -170,21 +169,6 @@ async def test_poll_fails(db, event_loop):
     # .poll() will run self.clear_state() if it's not found:
     assert spawner.job_id == ""
     assert spawner.job_status == ""
-
-
-async def test_unknown_status(db, event_loop):
-    """Polling returns an unknown status"""
-    spawner = new_spawner(db=db)
-    assert spawner.get_state() == {}
-    # The start is successful:
-    await asyncio.wait_for(spawner.start(), timeout=30)
-    spawner.batch_query_cmd = "echo UNKNOWN"
-    # This poll should not fail:
-    await asyncio.wait_for(spawner.poll(), timeout=30)
-    status = await asyncio.wait_for(spawner.query_job_status(), timeout=30)
-    assert status == JobStatus.UNKNOWN
-    assert spawner.job_id == "12345"
-    assert spawner.job_status != ""
 
 
 async def test_templates(db, event_loop):
@@ -498,10 +482,6 @@ async def test_slurm(db, event_loop):
 normal_slurm_script = [
     (re.compile(r"sudo.*sbatch"), str(testjob)),
     (re.compile(r"sudo.*squeue"), "PENDING "),  # pending
-    (
-        re.compile(r"sudo.*squeue"),
-        "slurm_load_jobs error: Unable to contact slurm controller",
-    ),  # unknown
     (re.compile(r"sudo.*squeue"), "RUNNING " + testhost),  # running
     (re.compile(r"sudo.*squeue"), "RUNNING " + testhost),
     (re.compile(r"sudo.*scancel"), "STOP"),

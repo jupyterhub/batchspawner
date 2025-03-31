@@ -45,7 +45,6 @@ class JobStatus(Enum):
     NOTFOUND = 0
     RUNNING = 1
     PENDING = 2
-    UNKNOWN = 3
 
 
 class BatchSpawnerBase(Spawner):
@@ -325,8 +324,6 @@ class BatchSpawnerBase(Spawner):
             return JobStatus.RUNNING
         elif self.state_ispending():
             return JobStatus.PENDING
-        elif self.state_isunknown():
-            return JobStatus.UNKNOWN
         else:
             return JobStatus.NOTFOUND
 
@@ -380,10 +377,6 @@ class BatchSpawnerBase(Spawner):
         "Return boolean indicating if job is running, likely by parsing self.job_status"
         raise NotImplementedError("Subclass must provide implementation")
 
-    def state_isunknown(self):
-        "Return boolean indicating if job state retrieval failed because of the resource manager"
-        return None
-
     def state_gethost(self):
         "Return string, hostname or addr of running job, likely by parsing self.job_status"
         raise NotImplementedError("Subclass must provide implementation")
@@ -391,7 +384,7 @@ class BatchSpawnerBase(Spawner):
     async def poll(self):
         """Poll the process"""
         status = await self.query_job_status()
-        if status in (JobStatus.PENDING, JobStatus.RUNNING, JobStatus.UNKNOWN):
+        if status in (JobStatus.PENDING, JobStatus.RUNNING):
             return None
         else:
             self.clear_state()
@@ -426,8 +419,6 @@ class BatchSpawnerBase(Spawner):
                 break
             elif status == JobStatus.PENDING:
                 self.log.debug("Job " + self.job_id + " still pending")
-            elif status == JobStatus.UNKNOWN:
-                self.log.debug("Job " + self.job_id + " still unknown")
             else:
                 self.log.warning(
                     "Job "
@@ -472,7 +463,7 @@ class BatchSpawnerBase(Spawner):
             return
         for i in range(10):
             status = await self.query_job_status()
-            if status not in (JobStatus.RUNNING, JobStatus.UNKNOWN):
+            if status is not JobStatus.RUNNING:
                 return
             await asyncio.sleep(1)
         if self.job_id:
@@ -533,11 +524,6 @@ class BatchSpawnerRegexStates(BatchSpawnerBase):
         to obtain the notebook IP.
         See Python docs: re.match.expand""",
     ).tag(config=True)
-    state_unknown_re = Unicode(
-        "",
-        help="Regex that matches job_status if the resource manager is not answering."
-        "Blank indicates not used.",
-    ).tag(config=True)
 
     def state_ispending(self):
         assert self.state_pending_re, "Misconfigured: define state_running_re"
@@ -546,11 +532,6 @@ class BatchSpawnerRegexStates(BatchSpawnerBase):
     def state_isrunning(self):
         assert self.state_running_re, "Misconfigured: define state_running_re"
         return self.job_status and re.search(self.state_running_re, self.job_status)
-
-    def state_isunknown(self):
-        # Blank means "not set" and this function always returns None.
-        if self.state_unknown_re:
-            return self.job_status and re.search(self.state_unknown_re, self.job_status)
 
     def state_gethost(self):
         assert self.state_exechost_re, "Misconfigured: define state_exechost_re"
@@ -728,9 +709,6 @@ echo "jupyterhub-singleuser ended gracefully"
     #  RUNNING,  COMPLETING = running
     state_pending_re = Unicode(r"^(?:PENDING|CONFIGURING)").tag(config=True)
     state_running_re = Unicode(r"^(?:RUNNING|COMPLETING)").tag(config=True)
-    state_unknown_re = Unicode(
-        r"^slurm_load_jobs error: (?:Socket timed out on send/recv|Unable to contact slurm controller)"
-    ).tag(config=True)
     state_exechost_re = Unicode(r"\s+((?:[\w_-]+\.?)+)$").tag(config=True)
 
     def parse_job_id(self, output):
