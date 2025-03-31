@@ -382,13 +382,17 @@ class BatchSpawnerBase(Spawner):
         raise NotImplementedError("Subclass must provide implementation")
 
     async def poll(self):
-        """Poll the process"""
+        """Poll the process
+
+        Return None if the process is pending or running. If not, clear state
+        and return 0.
+        """
         status = await self.query_job_status()
-        if status in (JobStatus.PENDING, JobStatus.RUNNING):
-            return None
-        else:
+        if not self.job_id:
             self.clear_state()
-            return 1
+            return 0
+        else:
+            return None
 
     startup_poll_interval = Float(
         0.5,
