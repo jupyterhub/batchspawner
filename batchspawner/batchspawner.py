@@ -388,7 +388,7 @@ class BatchSpawnerBase(Spawner):
         and return 0.
         """
         status = await self.query_job_status()
-        if not self.job_id:
+        if not status.value:
             self.clear_state()
             return 0
         else:
@@ -467,7 +467,7 @@ class BatchSpawnerBase(Spawner):
             return
         for i in range(10):
             status = await self.query_job_status()
-            if status is not JobStatus.RUNNING:
+            if not status.value: # status.value = 0 (NOTFOUND)
                 return
             await asyncio.sleep(1)
         if self.job_id:
