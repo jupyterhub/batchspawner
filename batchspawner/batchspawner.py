@@ -43,8 +43,7 @@ def format_template(template, *args, **kwargs):
 
 class JobStatus(Enum):
     NOTFOUND = 0
-    RUNNING = 1
-    PENDING = 2
+    RUN_OR_PEND = 1
 
 
 class BatchSpawnerBase(Spawner):
@@ -320,12 +319,10 @@ class BatchSpawnerBase(Spawner):
             self.log.error("Error querying job " + self.job_id)
             self.job_status = ""
 
-        if self.state_isrunning():
-            return JobStatus.RUNNING
-        elif self.state_ispending():
-            return JobStatus.PENDING
-        else:
+        if self.state_notfound():
             return JobStatus.NOTFOUND
+        else:
+            return JobStatus.RUN_OR_PEND
 
     batch_cancel_cmd = Unicode(
         "",
@@ -419,16 +416,9 @@ class BatchSpawnerBase(Spawner):
             )
         while True:
             status = await self.query_job_status()
-            if status == JobStatus.RUNNING:
-                break
-            elif status == JobStatus.PENDING:
-                self.log.debug("Job " + self.job_id + " still pending")
-            else:
+            if status == JobStatus.NOTFOUND:
                 self.log.warning(
-                    "Job "
-                    + self.job_id
-                    + " neither pending nor running.\n"
-                    + self.job_status
+                    "Job " + self.job_id + " not found."
                 )
                 self.clear_state()
                 raise RuntimeError(
@@ -436,6 +426,19 @@ class BatchSpawnerBase(Spawner):
                     " while pending in the queue or died immediately"
                     " after starting."
                 )
+            else: # JobStatus.RUN_OR_PEND
+                if self.state_isrunning():
+                    break
+                elif self.state_ispending():
+                    self.log.debug("Job " + self.job_id + " still pending")
+                else:
+                    self.log.warning(
+                        "Job "
+                        + self.job_id
+                        + " neither pending nor running.\n"
+                        + self.job_status
+                    )
+
             await asyncio.sleep(self.startup_poll_interval)
 
         self.ip = self.state_gethost()
@@ -494,11 +497,13 @@ class BatchSpawnerRegexStates(BatchSpawnerBase):
     to interact with batch submission system state. Provides implementations of
         state_ispending
         state_isrunning
+        state_notfound
         state_gethost
 
     In their place, the user should supply the following configuration:
         state_pending_re - regex that matches job_status if job is waiting to run
         state_running_re - regex that matches job_status if job is running
+        state_notfound_re - regex that matches job_status if job is not found
         state_exechost_re - regex with at least one capture group that extracts
                             execution host from job_status
         state_exechost_exp - if empty, notebook IP will be set to the contents of the
@@ -515,6 +520,10 @@ class BatchSpawnerRegexStates(BatchSpawnerBase):
         "",
         help="Regex that matches job_status if job is running",
     ).tag(config=True)
+    state_notfound_re = Unicode(
+        "",
+        help="Regex that matches job_status if job is not found",
+    ).tag(config=True)
     state_exechost_re = Unicode(
         "",
         help="Regex with at least one capture group that extracts "
@@ -530,12 +539,16 @@ class BatchSpawnerRegexStates(BatchSpawnerBase):
     ).tag(config=True)
 
     def state_ispending(self):
-        assert self.state_pending_re, "Misconfigured: define state_running_re"
+        assert self.state_pending_re, "Misconfigured: define state_pending_re"
         return self.job_status and re.search(self.state_pending_re, self.job_status)
 
     def state_isrunning(self):
         assert self.state_running_re, "Misconfigured: define state_running_re"
         return self.job_status and re.search(self.state_running_re, self.job_status)
+
+    def state_notfound(self):
+        assert self.state_notfound_re, "Misconfigured: define state_notfound_re"
+        return self.job_status and re.search(self.state_notfound_re, self.job_status)
 
     def state_gethost(self):
         assert self.state_exechost_re, "Misconfigured: define state_exechost_re"
@@ -713,6 +726,7 @@ echo "jupyterhub-singleuser ended gracefully"
     #  RUNNING,  COMPLETING = running
     state_pending_re = Unicode(r"^(?:PENDING|CONFIGURING)").tag(config=True)
     state_running_re = Unicode(r"^(?:RUNNING|COMPLETING)").tag(config=True)
+    state_notfound_re = Unicode(r'slurm_load_jobs error: Invalid job id specified').tag(config=True)
     state_exechost_re = Unicode(r"\s+((?:[\w_-]+\.?)+)$").tag(config=True)
 
     def parse_job_id(self, output):

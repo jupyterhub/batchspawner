@@ -37,6 +37,7 @@ class BatchDummy(BatchSpawnerRegexStates):
     batch_script = Unicode("{cmd}")
     state_pending_re = Unicode("PEND")
     state_running_re = Unicode("RUN")
+    state_notfound_re = Unicode("NOPE")
     state_exechost_re = Unicode("RUN (.*)$")
 
     cmd_expectlist = None
@@ -148,7 +149,7 @@ async def test_submit_pending_fails(db, event_loop):
     """Submission works, but the batch query command immediately fails"""
     spawner = new_spawner(db=db)
     assert spawner.get_state() == {}
-    spawner.batch_query_cmd = "echo xyz"
+    spawner.batch_query_cmd = "echo NOPE"
     with pytest.raises(RuntimeError):
         await asyncio.wait_for(spawner.start(), timeout=30)
     status = await asyncio.wait_for(spawner.query_job_status(), timeout=30)
@@ -485,7 +486,8 @@ normal_slurm_script = [
     (re.compile(r"sudo.*squeue"), "RUNNING " + testhost),  # running
     (re.compile(r"sudo.*squeue"), "RUNNING " + testhost),
     (re.compile(r"sudo.*scancel"), "STOP"),
-    (re.compile(r"sudo.*squeue"), ""),
+    (re.compile(r"sudo.*squeue"), "slurm_load_jobs error: Invalid job id specified'"),
+    (re.compile(r"sudo.*squeue"), "slurm_load_jobs error: Invalid job id specified'"),
 ]
 from .. import SlurmSpawner
 
