@@ -26,6 +26,8 @@ from jinja2 import Template
 from jupyterhub.spawner import Spawner, set_user_setuid
 from traitlets import Dict, Float, Integer, Unicode, default
 
+import random, string
+
 
 def format_template(template, *args, **kwargs):
     """Format a template, either using jinja2 or str.format().
@@ -218,39 +220,38 @@ class BatchSpawnerBase(Spawner):
         if input:
             inbytes = input.encode()
 
+        run_cmd_id = ''.join(random.choices(string.ascii_letters + string.digits, k=6))
         try:
             out, eout = await proc.communicate(input=inbytes)
         except:
-            self.log.debug("Exception raised when trying to run command: %s" % cmd)
+            self.log.error(f"run_command id {run_cmd_id}")
+            self.log.error(f"{run_cmd_id} Exception raised when trying to run command: {cmd}")
             proc.kill()
-            self.log.debug("Running command failed, killed process.")
+            self.log.error(f"{run_cmd_id} Running command failed, killed process.")
             try:
-                out, eout = await asyncio.wait_for(proc.communicate(), timeout=2)
+                out, eout = await asyncio.wait_for(proc.communicate(), timeout=10)
                 out = out.decode().strip()
                 eout = eout.decode().strip()
-                self.log.error("Subprocess returned exitcode %s" % proc.returncode)
-                self.log.error("Stdout:")
-                self.log.error(out)
-                self.log.error("Stderr:")
-                self.log.error(eout)
-                raise RuntimeError(f"{cmd} exit status {proc.returncode}: {eout}")
-            except asyncio.TimeoutError:
+                self.log.error(f"{run_cmd_id} Subprocess returned exitcode {proc.returncode}")
+                self.log.error(f"{run_cmd_id} Stdout: {out}")
+                self.log.error(f"{run_cmd_id} Stderr: {eout}")
+                raise RuntimeError(f"{run_cmd_id} {cmd} exit status {proc.returncode} stdout: {out} stderr: {eout}")
+            except TimeoutError:
                 self.log.error(
-                    "Encountered timeout trying to clean up command, process probably killed already: %s"
-                    % cmd
+                    f"{run_cmd_id} Encountered timeout trying to clean up command, process probably killed already: {cmd}"
                 )
                 return ""
             except:
                 self.log.error(
-                    "Encountered exception trying to clean up command: %s" % cmd
+                    f"{run_cmd_id} Encountered exception trying to clean up command: {cmd}"
                 )
                 raise
         else:
             eout = eout.decode().strip()
             err = proc.returncode
             if err != 0:
-                self.log.error("Subprocess returned exitcode %s" % err)
-                self.log.error(eout)
+                self.log.error(f"{run_cmd_id} Subprocess returned exitcode {err}")
+                self.log.error(f"{run_cmd_id} stderr {eout}")
                 raise RuntimeError(eout)
 
         out = out.decode().strip()
