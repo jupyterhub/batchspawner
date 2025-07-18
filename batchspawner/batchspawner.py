@@ -223,9 +223,10 @@ class BatchSpawnerBase(Spawner):
         run_cmd_id = ''.join(random.choices(string.ascii_letters + string.digits, k=6))
         try:
             out, eout = await proc.communicate(input=inbytes)
-        except:
+        except Exception as e:
             self.log.error(f"run_command id {run_cmd_id}")
-            self.log.error(f"{run_cmd_id} Exception raised when trying to run command: {cmd}")
+            self.log.error(f"{run_cmd_id} Exception {e.__class__.__name__}: {e}")
+            self.log.error(f"{run_cmd_id} exception raised when trying to run command: {cmd}")
             proc.kill()
             self.log.error(f"{run_cmd_id} Running command failed, killed process.")
             try:
