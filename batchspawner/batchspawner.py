@@ -207,10 +207,13 @@ class BatchSpawnerBase(Spawner):
         """The command which is substituted inside of the batch script"""
         return " ".join([self.batchspawner_singleuser_cmd] + self.cmd + self.get_args())
 
+    def get_id(self):
+        return id(self)
+
     async def run_command(self, cmd, input=None, env=None):
-        run_cmd_id = get_self_id(self)
+        run_cmd_id = self.get_id()
         self.log.error(f"{run_cmd_id} running command {cmd}")
-        
+
         proc = await asyncio.create_subprocess_shell(
             cmd,
             env=env,
@@ -285,7 +288,7 @@ class BatchSpawnerBase(Spawner):
         self.log.debug("Spawner submitting environment: %s", self.get_env())
         out = await self.run_command(cmd, input=script, env=self.get_env())
         try:
-            run_cmd_id = get_self_id(self)
+            run_cmd_id = self.get_id()
             self.log.info("Job submitted. output: %s", out)
             self.log.error(f"{run_cmd_id} job submitted, output: {out}")
             self.job_id = self.parse_job_id(out)
@@ -469,7 +472,7 @@ class BatchSpawnerBase(Spawner):
         Returns immediately after sending job cancellation command if now=True, otherwise
         tries to confirm that job is no longer running."""
 
-        run_cmd_id = get_self_id(self)
+        run_cmd_id = self.get_id()
         self.log.error(f"{run_cmd_id} stopping server job {self.job_id}")
         self.log.info("Stopping server job " + self.job_id)
         await self.cancel_batch_job()
@@ -569,9 +572,6 @@ class BatchSpawnerRegexStates(BatchSpawnerBase):
             return match.groups()[0]
         else:
             return match.expand(self.state_exechost_exp)
-
-    def get_self_id(self):
-        return id(self)
 
 
 class TorqueSpawner(BatchSpawnerRegexStates):
