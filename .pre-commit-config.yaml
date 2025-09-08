@@ -11,7 +11,7 @@
 repos:
   # Autoformat: Python code, syntax patterns are modernized
   - repo: https://github.com/asottile/pyupgrade
-    rev: v3.15.2
+    rev: v3.20.0
     hooks:
       - id: pyupgrade
         args:
@@ -28,13 +28,13 @@ repos:
 
   # Autoformat: Python code
   - repo: https://github.com/pycqa/isort
-    rev: 5.13.2
+    rev: 6.0.1
     hooks:
       - id: isort
 
   # Autoformat: Python code
   - repo: https://github.com/psf/black
-    rev: "24.4.2"
+    rev: "25.1.0"
     hooks:
       - id: black
 
@@ -46,13 +46,13 @@ repos:
 
   # Lint: Python code
   - repo: https://github.com/PyCQA/flake8
-    rev: "7.0.0"
+    rev: "7.3.0"
     hooks:
       - id: flake8
 
   # Misc...
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0
+    rev: v6.0.0
     # ref: https://github.com/pre-commit/pre-commit-hooks#hooks-available
     hooks:
       # Autoformat: Makes sure files end in a newline and only a newline.
