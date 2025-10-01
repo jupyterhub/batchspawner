@@ -16,11 +16,13 @@ Common attributes of batch submission / resource manager environments will inclu
   * job names instead of PIDs
 """
 import asyncio
+import json
 import os
 import pwd
 import re
 import xml.etree.ElementTree as ET
 from enum import Enum
+from urllib.parse import urlparse
 
 from jinja2 import Template
 from jupyterhub.spawner import Spawner, set_user_setuid
@@ -958,6 +960,52 @@ set -eu
             )
         )
         return
+
+
+class FluxSpawner(BatchSpawnerBase):
+    """A Spawner that uses Flux to launch notebooks."""
+
+    batch_script = Unicode(
+        """#!/bin/sh
+
+#flux: --nslots=1
+#flux: --job-name='spawner-jupyterhub'
+#flux: --cwd={{homedir}}
+#flux: --output='{{homedir}}/{% raw %}.flux-{{id}}-{{name}}.log{% endraw %}'
+#flux: --error='{{homedir}}/{% raw %}.flux-{{id}}-{{name}}.error.log{% endraw %}'
+{%            if runtime %}#flux: --time-limit={{runtime}}
+{% endif %}{% if queue   %}#flux: --queue={{queue}}
+{% endif %}{% if nprocs  %}#flux: --cores-per-slot={{nprocs}}
+{% endif %}{% if gres    %}#flux: --gpus-per-slot={{gres}}{% endif %}
+
+set -eu
+
+{{prologue}}
+{{cmd}}
+{{epilogue}}
+"""
+    ).tag(config=True)
+    batch_submit_cmd = Unicode("flux batch").tag(config=True)
+    batch_query_cmd = Unicode("flux jobs --json {job_id}").tag(config=True)
+    batch_cancel_cmd = Unicode("flux cancel {job_id}").tag(config=True)
+
+    def state_ispending(self):
+        if not self.job_status:
+            return False
+
+        status = json.loads(self.job_status)
+        return status["state"] in ("DEPEND", "PRIORITY", "SCHED") or "uri" not in status
+
+    def state_isrunning(self):
+        if not self.job_status:
+            return False
+
+        status = json.loads(self.job_status)
+        return status["state"] in ("RUN", "CLEANUP") and "uri" in status
+
+    def state_gethost(self):
+        status = json.loads(self.job_status)
+        return urlparse(status["uri"]).netloc
 
 
 # vim: set ai expandtab softtabstop=4:

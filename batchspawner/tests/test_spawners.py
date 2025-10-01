@@ -625,6 +625,50 @@ async def test_lfs(db, event_loop):
     )
 
 
+async def test_flux(db, event_loop):
+    spawner_kwargs = {
+        "req_nprocs": "5",
+        "req_gres": "5",
+        "req_queue": "some_queue",
+        "req_prologue": "PROLOGUE",
+        "req_epilogue": "EPILOGUE",
+    }
+    batch_script_re_list = [
+        re.compile(
+            r"^PROLOGUE.*^batchspawner-singleuser singleuser_command.*^EPILOGUE",
+            re.S | re.M,
+        ),
+        re.compile(r"#flux:\s+--queue=some_queue", re.M),
+    ]
+    script = [
+        (re.compile(r"sudo.*flux batch"), str(testjob)),
+        (re.compile(r"sudo.*flux jobs --json"), '{"state": "SCHED"}'),
+        (
+            re.compile(r"sudo.*flux jobs --json"),
+            f'{{"state": "RUN", "uri": "ssh://{testhost}/foo/bar"}}',
+        ),
+        (
+            re.compile(r"sudo.*flux jobs --json"),
+            f'{{"state": "RUN", "uri": "ssh://{testhost}/foo/bar"}}',
+        ),
+        (
+            re.compile(r"sudo.*flux jobs --json"),
+            f'{{"state": "RUN", "uri": "ssh://{testhost}/foo/bar"}}',
+        ),
+        (re.compile(r"sudo.*flux cancel"), ""),
+        (re.compile(r"sudo.*flux jobs --json"), '{"state": "INACTIVE"}'),
+    ]
+    from .. import FluxSpawner
+
+    await run_spawner_script(
+        db,
+        FluxSpawner,
+        script,
+        batch_script_re_list=batch_script_re_list,
+        spawner_kwargs=spawner_kwargs,
+    )
+
+
 async def test_keepvars(db, event_loop):
     # req_keepvars
     spawner_kwargs = {
