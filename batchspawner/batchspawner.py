@@ -679,7 +679,7 @@ class SlurmSpawner(UserEnvMixin, BatchSpawnerRegexStates):
 #SBATCH --job-name=spawner-jupyterhub
 #SBATCH --chdir={{homedir}}
 #SBATCH --export={{keepvars}}
-#SBATCH --get-user-env=L
+#SBATCH --get-user-env
 {% if partition  %}#SBATCH --partition={{partition}}
 {% endif %}{% if runtime    %}#SBATCH --time={{runtime}}
 {% endif %}{% if memory     %}#SBATCH --mem={{memory}}
