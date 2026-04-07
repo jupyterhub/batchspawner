@@ -43,9 +43,7 @@ def format_template(template, *args, **kwargs):
 
 class JobStatus(Enum):
     NOTFOUND = 0
-    RUNNING = 1
-    PENDING = 2
-    UNKNOWN = 3
+    RUN_OR_PEND = 1
 
 
 class BatchSpawnerBase(Spawner):
@@ -207,7 +205,13 @@ class BatchSpawnerBase(Spawner):
         """The command which is substituted inside of the batch script"""
         return " ".join([self.batchspawner_singleuser_cmd] + self.cmd + self.get_args())
 
+    def get_id(self):
+        return id(self)
+
     async def run_command(self, cmd, input=None, env=None):
+        run_cmd_id = self.get_id()
+        self.log.error(f"{run_cmd_id} running command {cmd}")
+
         proc = await asyncio.create_subprocess_shell(
             cmd,
             env=env,
@@ -222,37 +226,41 @@ class BatchSpawnerBase(Spawner):
 
         try:
             out, eout = await proc.communicate(input=inbytes)
-        except:
-            self.log.debug("Exception raised when trying to run command: %s" % cmd)
+        except Exception as e:
+            self.log.error(f"{run_cmd_id} Exception {e.__class__.__name__}: {e}")
+            self.log.error(
+                f"{run_cmd_id} exception raised when trying to run command: {cmd}"
+            )
             proc.kill()
-            self.log.debug("Running command failed, killed process.")
+            self.log.error(f"{run_cmd_id} Running command failed, killed process.")
             try:
-                out, eout = await asyncio.wait_for(proc.communicate(), timeout=2)
+                out, eout = await asyncio.wait_for(proc.communicate(), timeout=10)
                 out = out.decode().strip()
                 eout = eout.decode().strip()
-                self.log.error("Subprocess returned exitcode %s" % proc.returncode)
-                self.log.error("Stdout:")
-                self.log.error(out)
-                self.log.error("Stderr:")
-                self.log.error(eout)
-                raise RuntimeError(f"{cmd} exit status {proc.returncode}: {eout}")
-            except asyncio.TimeoutError:
                 self.log.error(
-                    "Encountered timeout trying to clean up command, process probably killed already: %s"
-                    % cmd
+                    f"{run_cmd_id} Subprocess returned exitcode {proc.returncode}"
+                )
+                self.log.error(f"{run_cmd_id} Stdout: {out}")
+                self.log.error(f"{run_cmd_id} Stderr: {eout}")
+                raise RuntimeError(
+                    f"{run_cmd_id} {cmd} exit status {proc.returncode} stdout: {out} stderr: {eout}"
+                )
+            except TimeoutError:
+                self.log.error(
+                    f"{run_cmd_id} Encountered timeout trying to clean up command, process probably killed already: {cmd}"
                 )
                 return ""
             except:
                 self.log.error(
-                    "Encountered exception trying to clean up command: %s" % cmd
+                    f"{run_cmd_id} Encountered exception trying to clean up command: {cmd}"
                 )
                 raise
         else:
             eout = eout.decode().strip()
             err = proc.returncode
             if err != 0:
-                self.log.error("Subprocess returned exitcode %s" % err)
-                self.log.error(eout)
+                self.log.error(f"{run_cmd_id} Subprocess returned exitcode {err}")
+                self.log.error(f"{run_cmd_id} stderr {eout}")
                 raise RuntimeError(eout)
 
         out = out.decode().strip()
@@ -284,7 +292,9 @@ class BatchSpawnerBase(Spawner):
         self.log.debug("Spawner submitting environment: %s", self.get_env())
         out = await self.run_command(cmd, input=script, env=self.get_env())
         try:
+            run_cmd_id = self.get_id()
             self.log.info("Job submitted. output: %s", out)
+            self.log.error(f"{run_cmd_id} job submitted, output: {out}")
             self.job_id = self.parse_job_id(out)
         except:
             self.log.error("Job submission failed. exit code: %s", out)
@@ -321,14 +331,10 @@ class BatchSpawnerBase(Spawner):
             self.log.error("Error querying job " + self.job_id)
             self.job_status = ""
 
-        if self.state_isrunning():
-            return JobStatus.RUNNING
-        elif self.state_ispending():
-            return JobStatus.PENDING
-        elif self.state_isunknown():
-            return JobStatus.UNKNOWN
-        else:
+        if self.state_notfound():
             return JobStatus.NOTFOUND
+        else:
+            return JobStatus.RUN_OR_PEND
 
     batch_cancel_cmd = Unicode(
         "",
@@ -380,22 +386,22 @@ class BatchSpawnerBase(Spawner):
         "Return boolean indicating if job is running, likely by parsing self.job_status"
         raise NotImplementedError("Subclass must provide implementation")
 
-    def state_isunknown(self):
-        "Return boolean indicating if job state retrieval failed because of the resource manager"
-        return None
-
     def state_gethost(self):
         "Return string, hostname or addr of running job, likely by parsing self.job_status"
         raise NotImplementedError("Subclass must provide implementation")
 
     async def poll(self):
-        """Poll the process"""
+        """Poll the process
+
+        Return None if the process is pending or running. If not, clear state
+        and return 0.
+        """
         status = await self.query_job_status()
-        if status in (JobStatus.PENDING, JobStatus.RUNNING, JobStatus.UNKNOWN):
-            return None
-        else:
+        if not status.value:
             self.clear_state()
-            return 1
+            return 0
+        else:
+            return None
 
     startup_poll_interval = Float(
         0.5,
@@ -422,25 +428,27 @@ class BatchSpawnerBase(Spawner):
             )
         while True:
             status = await self.query_job_status()
-            if status == JobStatus.RUNNING:
-                break
-            elif status == JobStatus.PENDING:
-                self.log.debug("Job " + self.job_id + " still pending")
-            elif status == JobStatus.UNKNOWN:
-                self.log.debug("Job " + self.job_id + " still unknown")
-            else:
-                self.log.warning(
-                    "Job "
-                    + self.job_id
-                    + " neither pending nor running.\n"
-                    + self.job_status
-                )
+            if status == JobStatus.NOTFOUND:
+                self.log.warning("Job " + self.job_id + " not found.")
                 self.clear_state()
                 raise RuntimeError(
                     "The Jupyter batch job has disappeared"
                     " while pending in the queue or died immediately"
                     " after starting."
                 )
+            else:  # JobStatus.RUN_OR_PEND
+                if self.state_isrunning():
+                    break
+                elif self.state_ispending():
+                    self.log.debug("Job " + self.job_id + " still pending")
+                else:
+                    self.log.warning(
+                        "Job "
+                        + self.job_id
+                        + " neither pending nor running.\n"
+                        + self.job_status
+                    )
+
             await asyncio.sleep(self.startup_poll_interval)
 
         self.ip = self.state_gethost()
@@ -473,13 +481,15 @@ class BatchSpawnerBase(Spawner):
         Returns immediately after sending job cancellation command if now=True, otherwise
         tries to confirm that job is no longer running."""
 
+        run_cmd_id = self.get_id()
+        self.log.error(f"{run_cmd_id} stopping server job {self.job_id}")
         self.log.info("Stopping server job " + self.job_id)
         await self.cancel_batch_job()
         if now:
             return
         for i in range(10):
             status = await self.query_job_status()
-            if status not in (JobStatus.RUNNING, JobStatus.UNKNOWN):
+            if not status.value:  # status.value = 0 (NOTFOUND)
                 return
             await asyncio.sleep(1)
         if self.job_id:
@@ -506,11 +516,13 @@ class BatchSpawnerRegexStates(BatchSpawnerBase):
     to interact with batch submission system state. Provides implementations of
         state_ispending
         state_isrunning
+        state_notfound
         state_gethost
 
     In their place, the user should supply the following configuration:
         state_pending_re - regex that matches job_status if job is waiting to run
         state_running_re - regex that matches job_status if job is running
+        state_notfound_re - regex that matches job_status if job is not found
         state_exechost_re - regex with at least one capture group that extracts
                             execution host from job_status
         state_exechost_exp - if empty, notebook IP will be set to the contents of the
@@ -527,6 +539,10 @@ class BatchSpawnerRegexStates(BatchSpawnerBase):
         "",
         help="Regex that matches job_status if job is running",
     ).tag(config=True)
+    state_notfound_re = Unicode(
+        "",
+        help="Regex that matches job_status if job is not found",
+    ).tag(config=True)
     state_exechost_re = Unicode(
         "",
         help="Regex with at least one capture group that extracts "
@@ -540,24 +556,18 @@ class BatchSpawnerRegexStates(BatchSpawnerBase):
         to obtain the notebook IP.
         See Python docs: re.match.expand""",
     ).tag(config=True)
-    state_unknown_re = Unicode(
-        "",
-        help="Regex that matches job_status if the resource manager is not answering."
-        "Blank indicates not used.",
-    ).tag(config=True)
 
     def state_ispending(self):
-        assert self.state_pending_re, "Misconfigured: define state_running_re"
+        assert self.state_pending_re, "Misconfigured: define state_pending_re"
         return self.job_status and re.search(self.state_pending_re, self.job_status)
 
     def state_isrunning(self):
         assert self.state_running_re, "Misconfigured: define state_running_re"
         return self.job_status and re.search(self.state_running_re, self.job_status)
 
-    def state_isunknown(self):
-        # Blank means "not set" and this function always returns None.
-        if self.state_unknown_re:
-            return self.job_status and re.search(self.state_unknown_re, self.job_status)
+    def state_notfound(self):
+        assert self.state_notfound_re, "Misconfigured: define state_notfound_re"
+        return self.job_status and re.search(self.state_notfound_re, self.job_status)
 
     def state_gethost(self):
         assert self.state_exechost_re, "Misconfigured: define state_exechost_re"
@@ -735,9 +745,9 @@ echo "jupyterhub-singleuser ended gracefully"
     #  RUNNING,  COMPLETING = running
     state_pending_re = Unicode(r"^(?:PENDING|CONFIGURING)").tag(config=True)
     state_running_re = Unicode(r"^(?:RUNNING|COMPLETING)").tag(config=True)
-    state_unknown_re = Unicode(
-        r"^slurm_load_jobs error: (?:Socket timed out on send/recv|Unable to contact slurm controller)"
-    ).tag(config=True)
+    state_notfound_re = Unicode(r"slurm_load_jobs error: Invalid job id specified").tag(
+        config=True
+    )
     state_exechost_re = Unicode(r"\s+((?:[\w_-]+\.?)+)$").tag(config=True)
 
     def parse_job_id(self, output):

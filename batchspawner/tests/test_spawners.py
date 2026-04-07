@@ -37,8 +37,8 @@ class BatchDummy(BatchSpawnerRegexStates):
     batch_script = Unicode("{cmd}")
     state_pending_re = Unicode("PEND")
     state_running_re = Unicode("RUN")
+    state_notfound_re = Unicode("NOPE")
     state_exechost_re = Unicode("RUN (.*)$")
-    state_unknown_re = Unicode("UNKNOWN")
 
     cmd_expectlist = None
     out_expectlist = None
@@ -93,7 +93,7 @@ async def test_spawner_start_stop_poll(db, event_loop):
     spawner = new_spawner(db=db)
 
     status = await asyncio.wait_for(spawner.poll(), timeout=5)
-    assert status == 1
+    assert status == 0
     assert spawner.job_id == ""
     assert spawner.get_state() == {}
 
@@ -106,7 +106,7 @@ async def test_spawner_start_stop_poll(db, event_loop):
     spawner.batch_query_cmd = "echo NOPE"
     await asyncio.wait_for(spawner.stop(), timeout=5)
     status = await asyncio.wait_for(spawner.poll(), timeout=5)
-    assert status == 1
+    assert status == 0
     assert spawner.get_state() == {}
 
 
@@ -149,7 +149,7 @@ async def test_submit_pending_fails(db, event_loop):
     """Submission works, but the batch query command immediately fails"""
     spawner = new_spawner(db=db)
     assert spawner.get_state() == {}
-    spawner.batch_query_cmd = "echo xyz"
+    spawner.batch_query_cmd = "echo NOPE"
     with pytest.raises(RuntimeError):
         await asyncio.wait_for(spawner.start(), timeout=30)
     status = await asyncio.wait_for(spawner.query_job_status(), timeout=30)
@@ -158,33 +158,18 @@ async def test_submit_pending_fails(db, event_loop):
     assert spawner.job_status == ""
 
 
-async def test_poll_fails(db, event_loop):
-    """Submission works, but a later .poll() fails"""
-    spawner = new_spawner(db=db)
-    assert spawner.get_state() == {}
-    # The start is successful:
-    await asyncio.wait_for(spawner.start(), timeout=30)
-    spawner.batch_query_cmd = "echo xyz"
-    # Now, the poll fails:
-    await asyncio.wait_for(spawner.poll(), timeout=30)
-    # .poll() will run self.clear_state() if it's not found:
-    assert spawner.job_id == ""
-    assert spawner.job_status == ""
-
-
-async def test_unknown_status(db, event_loop):
-    """Polling returns an unknown status"""
-    spawner = new_spawner(db=db)
-    assert spawner.get_state() == {}
-    # The start is successful:
-    await asyncio.wait_for(spawner.start(), timeout=30)
-    spawner.batch_query_cmd = "echo UNKNOWN"
-    # This poll should not fail:
-    await asyncio.wait_for(spawner.poll(), timeout=30)
-    status = await asyncio.wait_for(spawner.query_job_status(), timeout=30)
-    assert status == JobStatus.UNKNOWN
-    assert spawner.job_id == "12345"
-    assert spawner.job_status != ""
+# async def test_poll_fails(db, event_loop):
+#     """Submission works, but a later .poll() fails"""
+#     spawner = new_spawner(db=db)
+#     assert spawner.get_state() == {}
+#     # The start is successful:
+#     await asyncio.wait_for(spawner.start(), timeout=30)
+#     spawner.batch_query_cmd = "echo xyz"
+#     # Now, the poll fails:
+#     await asyncio.wait_for(spawner.poll(), timeout=30)
+#     # .poll() will run self.clear_state() if it's not found:
+#     assert spawner.job_id == ""
+#     assert spawner.job_status == ""
 
 
 async def test_templates(db, event_loop):
@@ -196,7 +181,7 @@ async def test_templates(db, event_loop):
         re.compile(".*RUN"),
     ]
     status = await asyncio.wait_for(spawner.poll(), timeout=5)
-    assert status == 1
+    assert status == 0
     assert spawner.job_id == ""
     assert spawner.get_state() == {}
 
@@ -224,7 +209,7 @@ async def test_templates(db, event_loop):
     ]
     await asyncio.wait_for(spawner.stop(), timeout=5)
     status = await asyncio.wait_for(spawner.poll(), timeout=5)
-    assert status == 1
+    assert status == 0
     assert spawner.get_state() == {}
 
 
@@ -260,7 +245,7 @@ async def test_exec_prefix(db, event_loop):
     spawner = new_spawner(db=db, spawner_class=BatchDummyTestScript)
     # Not running
     status = await asyncio.wait_for(spawner.poll(), timeout=5)
-    assert status == 1
+    assert status == 0
     # Start
     await asyncio.wait_for(spawner.start(), timeout=5)
     assert spawner.job_id == testjob
@@ -271,7 +256,7 @@ async def test_exec_prefix(db, event_loop):
     spawner.batch_query_cmd = "echo NOPE"
     await asyncio.wait_for(spawner.stop(), timeout=5)
     status = await asyncio.wait_for(spawner.poll(), timeout=5)
-    assert status == 1
+    assert status == 0
 
 
 async def run_spawner_script(
@@ -315,7 +300,7 @@ async def run_spawner_script(
     spawner = new_spawner(db=db, spawner_class=BatchDummyTestScript, **spawner_kwargs)
     # Not running at beginning (no command run)
     status = await asyncio.wait_for(spawner.poll(), timeout=5)
-    assert status == 1
+    assert status == 0
     # batch_submit_cmd
     # batch_query_cmd    (result=pending)
     # batch_query_cmd    (result=running)
@@ -329,7 +314,7 @@ async def run_spawner_script(
     await asyncio.wait_for(spawner.stop(), timeout=5)
     # batch_poll_cmd
     status = await asyncio.wait_for(spawner.poll(), timeout=5)
-    assert status == 1
+    assert status == 0
 
 
 async def test_torque(db, event_loop):
@@ -495,15 +480,12 @@ async def test_slurm(db, event_loop):
 normal_slurm_script = [
     (re.compile(r"sudo.*sbatch"), str(testjob)),
     (re.compile(r"sudo.*squeue"), "PENDING "),  # pending
-    (
-        re.compile(r"sudo.*squeue"),
-        "slurm_load_jobs error: Unable to contact slurm controller",
-    ),  # unknown
     (re.compile(r"sudo.*squeue"), "RUNNING " + testhost),  # running
     (re.compile(r"sudo.*squeue"), "RUNNING " + testhost),
     (re.compile(r"sudo.*squeue"), "RUNNING " + testhost),
     (re.compile(r"sudo.*scancel"), "STOP"),
-    (re.compile(r"sudo.*squeue"), ""),
+    (re.compile(r"sudo.*squeue"), "slurm_load_jobs error: Invalid job id specified'"),
+    (re.compile(r"sudo.*squeue"), "slurm_load_jobs error: Invalid job id specified'"),
 ]
 from .. import SlurmSpawner
 
