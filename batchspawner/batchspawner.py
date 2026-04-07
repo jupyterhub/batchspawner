@@ -26,8 +26,6 @@ from jinja2 import Template
 from jupyterhub.spawner import Spawner, set_user_setuid
 from traitlets import Dict, Float, Integer, Unicode, default
 
-import random, string
-
 
 def format_template(template, *args, **kwargs):
     """Format a template, either using jinja2 or str.format().
@@ -230,17 +228,23 @@ class BatchSpawnerBase(Spawner):
             out, eout = await proc.communicate(input=inbytes)
         except Exception as e:
             self.log.error(f"{run_cmd_id} Exception {e.__class__.__name__}: {e}")
-            self.log.error(f"{run_cmd_id} exception raised when trying to run command: {cmd}")
+            self.log.error(
+                f"{run_cmd_id} exception raised when trying to run command: {cmd}"
+            )
             proc.kill()
             self.log.error(f"{run_cmd_id} Running command failed, killed process.")
             try:
                 out, eout = await asyncio.wait_for(proc.communicate(), timeout=10)
                 out = out.decode().strip()
                 eout = eout.decode().strip()
-                self.log.error(f"{run_cmd_id} Subprocess returned exitcode {proc.returncode}")
+                self.log.error(
+                    f"{run_cmd_id} Subprocess returned exitcode {proc.returncode}"
+                )
                 self.log.error(f"{run_cmd_id} Stdout: {out}")
                 self.log.error(f"{run_cmd_id} Stderr: {eout}")
-                raise RuntimeError(f"{run_cmd_id} {cmd} exit status {proc.returncode} stdout: {out} stderr: {eout}")
+                raise RuntimeError(
+                    f"{run_cmd_id} {cmd} exit status {proc.returncode} stdout: {out} stderr: {eout}"
+                )
             except TimeoutError:
                 self.log.error(
                     f"{run_cmd_id} Encountered timeout trying to clean up command, process probably killed already: {cmd}"
@@ -425,16 +429,14 @@ class BatchSpawnerBase(Spawner):
         while True:
             status = await self.query_job_status()
             if status == JobStatus.NOTFOUND:
-                self.log.warning(
-                    "Job " + self.job_id + " not found."
-                )
+                self.log.warning("Job " + self.job_id + " not found.")
                 self.clear_state()
                 raise RuntimeError(
                     "The Jupyter batch job has disappeared"
                     " while pending in the queue or died immediately"
                     " after starting."
                 )
-            else: # JobStatus.RUN_OR_PEND
+            else:  # JobStatus.RUN_OR_PEND
                 if self.state_isrunning():
                     break
                 elif self.state_ispending():
@@ -480,7 +482,7 @@ class BatchSpawnerBase(Spawner):
             return
         for i in range(10):
             status = await self.query_job_status()
-            if not status.value: # status.value = 0 (NOTFOUND)
+            if not status.value:  # status.value = 0 (NOTFOUND)
                 return
             await asyncio.sleep(1)
         if self.job_id:
@@ -736,7 +738,9 @@ echo "jupyterhub-singleuser ended gracefully"
     #  RUNNING,  COMPLETING = running
     state_pending_re = Unicode(r"^(?:PENDING|CONFIGURING)").tag(config=True)
     state_running_re = Unicode(r"^(?:RUNNING|COMPLETING)").tag(config=True)
-    state_notfound_re = Unicode(r'slurm_load_jobs error: Invalid job id specified').tag(config=True)
+    state_notfound_re = Unicode(r"slurm_load_jobs error: Invalid job id specified").tag(
+        config=True
+    )
     state_exechost_re = Unicode(r"\s+((?:[\w_-]+\.?)+)$").tag(config=True)
 
     def parse_job_id(self, output):
