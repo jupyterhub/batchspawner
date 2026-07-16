@@ -222,7 +222,7 @@ class BatchSpawnerBase(Spawner):
 
         try:
             out, eout = await proc.communicate(input=inbytes)
-        except:
+        except Exception:
             self.log.debug("Exception raised when trying to run command: %s" % cmd)
             proc.kill()
             self.log.debug("Running command failed, killed process.")
@@ -242,7 +242,7 @@ class BatchSpawnerBase(Spawner):
                     % cmd
                 )
                 return ""
-            except:
+            except Exception:
                 self.log.error(
                     "Encountered exception trying to clean up command: %s" % cmd
                 )
@@ -286,7 +286,7 @@ class BatchSpawnerBase(Spawner):
         try:
             self.log.info("Job submitted. output: %s", out)
             self.job_id = self.parse_job_id(out)
-        except:
+        except Exception:
             self.log.error("Job submission failed. exit code: %s", out)
             self.job_id = ""
         return self.job_id
