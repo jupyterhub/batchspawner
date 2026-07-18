@@ -458,7 +458,6 @@ class BatchSpawnerBase(Spawner):
                     " but died before launching the single-user server."
                 )
 
-        self.db.commit()
         self.log.info(
             "Notebook server job {} started at {}:{}".format(
                 self.job_id, self.ip, self.port
