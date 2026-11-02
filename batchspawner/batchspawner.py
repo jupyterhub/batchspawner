@@ -15,6 +15,7 @@ Common attributes of batch submission / resource manager environments will inclu
   * remote execution via submission of templated scripts
   * job names instead of PIDs
 """
+
 import asyncio
 import os
 import pwd
@@ -574,8 +575,7 @@ class BatchSpawnerRegexStates(BatchSpawnerBase):
 
 
 class TorqueSpawner(BatchSpawnerRegexStates):
-    batch_script = Unicode(
-        """#!/bin/sh
+    batch_script = Unicode("""#!/bin/sh
 #PBS -q {queue}@{host}
 #PBS -l walltime={runtime}
 #PBS -l nodes=1:ppn={nprocs}
@@ -589,8 +589,7 @@ set -eu
 {prologue}
 {cmd}
 {epilogue}
-"""
-    ).tag(config=True)
+""").tag(config=True)
 
     # outputs job id string
     batch_submit_cmd = Unicode("qsub").tag(config=True)
@@ -615,8 +614,7 @@ class MoabSpawner(TorqueSpawner):
 
 
 class PBSSpawner(TorqueSpawner):
-    batch_script = Unicode(
-        """#!/bin/sh
+    batch_script = Unicode("""#!/bin/sh
 {% if queue or host %}#PBS -q {% if queue  %}{{queue}}{% endif %}\
 {% if host %}@{{host}}{% endif %}{% endif %}
 #PBS -l walltime={{runtime}}
@@ -632,8 +630,7 @@ set -eu
 {{prologue}}
 {{cmd}}
 {{epilogue}}
-"""
-    ).tag(config=True)
+""").tag(config=True)
 
     # outputs job data XML string
     batch_query_cmd = Unicode("qstat -fx {job_id}").tag(config=True)
@@ -673,8 +670,7 @@ class UserEnvMixin:
 
 
 class SlurmSpawner(UserEnvMixin, BatchSpawnerRegexStates):
-    batch_script = Unicode(
-        """#!/bin/bash
+    batch_script = Unicode("""#!/bin/bash
 #SBATCH --output={{homedir}}/jupyterhub_slurmspawner_%j.log
 #SBATCH --job-name=spawner-jupyterhub
 #SBATCH --chdir={{homedir}}
@@ -695,8 +691,7 @@ trap 'echo SIGTERM received' TERM
 {% if srun %}{{srun}} {% endif %}{{cmd}}
 echo "jupyterhub-singleuser ended gracefully"
 {{epilogue}}
-"""
-    ).tag(config=True)
+""").tag(config=True)
 
     # all these req_foo traits will be available as substvars for templated strings
     req_cluster = Unicode(
@@ -771,8 +766,7 @@ class MultiSlurmSpawner(SlurmSpawner):
 
 
 class GridengineSpawner(BatchSpawnerBase):
-    batch_script = Unicode(
-        """#!/bin/bash
+    batch_script = Unicode("""#!/bin/bash
 #$ -j yes
 #$ -N spawner-jupyterhub
 #$ -o {homedir}/.jupyterhub.sge.out
@@ -785,8 +779,7 @@ set -euo pipefail
 {prologue}
 {cmd}
 {epilogue}
-"""
-    ).tag(config=True)
+""").tag(config=True)
 
     # outputs job id string
     batch_submit_cmd = Unicode("qsub").tag(config=True)
@@ -850,8 +843,7 @@ set -euo pipefail
 
 
 class CondorSpawner(UserEnvMixin, BatchSpawnerRegexStates):
-    batch_script = Unicode(
-        """
+    batch_script = Unicode("""
 Executable = /bin/sh
 RequestMemory = {memory}
 RequestCpus = {nprocs}
@@ -863,8 +855,7 @@ ShouldTransferFiles = False
 GetEnv = True
 {options}
 Queue
-"""
-    ).tag(config=True)
+""").tag(config=True)
 
     # outputs job id string
     batch_submit_cmd = Unicode("condor_submit").tag(config=True)
@@ -894,8 +885,7 @@ Queue
 class LsfSpawner(BatchSpawnerBase):
     """A Spawner that uses IBM's Platform Load Sharing Facility (LSF) to launch notebooks."""
 
-    batch_script = Unicode(
-        """#!/bin/sh
+    batch_script = Unicode("""#!/bin/sh
 #BSUB -R "select[type==any]"    # Allow spawning on non-uniform hardware
 #BSUB -R "span[hosts=1]"        # Only spawn job on one server
 #BSUB -q {queue}
@@ -908,8 +898,7 @@ set -eu
 {prologue}
 {cmd}
 {epilogue}
-"""
-    ).tag(config=True)
+""").tag(config=True)
 
     batch_submit_cmd = Unicode("bsub").tag(config=True)
     batch_query_cmd = Unicode('bjobs -a -noheader -o "STAT EXEC_HOST" {job_id}').tag(
